@@ -7,6 +7,7 @@
     "jsonwebtoken": "^9.0.1",
     "mongodb": "^5.8.0"
   },
+  "name": "planpicker_server",
   "name": "plan-picker_server",
   "description": "",
   "version": "1.0.0",
@@ -16,6 +17,18 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nrb04/PLANpicker_server.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nrb04/PLANpicker_server/issues"
+  },
+  "homepage": "https://github.com/nrb04/PLANpicker_server#readme"
+}
   "keywords": [],
   "author": "",
   "license": "ISC"
