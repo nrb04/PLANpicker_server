@@ -8,7 +8,6 @@
     "mongodb": "^5.8.0"
   },
   "name": "planpicker_server",
-  "name": "plan-picker_server",
   "description": "",
   "version": "1.0.0",
   "main": "index.js",
@@ -29,7 +28,4 @@
   },
   "homepage": "https://github.com/nrb04/PLANpicker_server#readme"
 }
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
-}
+
