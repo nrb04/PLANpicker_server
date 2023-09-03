@@ -49,6 +49,8 @@ async function run() {
 
     //collection Name
     const usersCollection = client.db('PlanPickerDb').collection('users')
+    const blogsCollection = client.db('PlanPickerDb').collection('blogs') ;
+
 
 
 
@@ -160,19 +162,11 @@ async function run() {
         $set: {
           ...user
         },
-      };
+      }
       const result = await usersCollection.updateOne(filter, users, options)
-    const eventCollection = client.db('planpicker').collection('eventData') ;
-    const userCollection = client.db('planpicker').collection('userData') ;
-    const userEventCollection = client.db('planpicker').collection('userEventData') ;
-    const blogsCollection = client.db('planpicker').collection('blog') ;
+    });
 
 
-    app.get('/events', async(req, res)=> {
-      const result = await eventCollection.find().toArray()
-      res.send(result)
-
-    })
 
     app.get('/blogs', async(req, res)=> {
       const result = await blogsCollection.find().toArray()
@@ -188,16 +182,7 @@ async function run() {
 
     })
 
-    app.get('/users', async(req, res)=> {
-      const result = await userCollection.find().toArray()
-      res.send(result)
 
-    })
-
-    app.get('/users-event', async(req, res)=> {
-      const result = await userEventCollection.find().toArray()
-      res.send(result)
-    })
 
     // Send a ping to confirm a successful connection
     
