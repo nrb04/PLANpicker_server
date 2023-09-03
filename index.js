@@ -48,8 +48,9 @@ async function run() {
     await client.connect();
 
     //collection Name
-    const usersCollection = client.db('PlanPickerDb').collection('users')
+    const usersCollection = client.db('PlanPickerDb').collection('users') ;
     const blogsCollection = client.db('PlanPickerDb').collection('blogs') ;
+    const planCollection = client.db('PlanPickerDb').collection('morePlan') ;
 
 
 
@@ -167,6 +168,7 @@ async function run() {
     });
 
 
+    // blogs
 
     app.get('/blogs', async(req, res)=> {
       const result = await blogsCollection.find().toArray()
@@ -182,6 +184,14 @@ async function run() {
 
     })
 
+    // plans
+
+    app.get('/plans', async(req, res)=> {
+      const result = await planCollection.find().toArray()
+      res.send(result)
+    })
+
+    
 
 
     // Send a ping to confirm a successful connection
