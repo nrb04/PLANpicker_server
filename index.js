@@ -64,7 +64,7 @@ async function run() {
       const { eventName, formData } = req.body;
       const {eventDuration, startDate, startTime} = formData
 
-      clg
+    
 
       try {
         // Zoom API setup
