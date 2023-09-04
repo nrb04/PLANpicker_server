@@ -64,7 +64,7 @@ async function run() {
       const { eventName, formData } = req.body;
       const {eventDuration, startDate, startTime} = formData
 
-      
+      clg
 
       try {
         // Zoom API setup
@@ -181,9 +181,6 @@ run().catch(console.dir);
   app.listen(port, () => {
     console.log(`Server is running on port: ${port}`);
   });
-
-
-
 
 
 // const fs = require('fs').promises;
