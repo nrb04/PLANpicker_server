@@ -1,30 +1,32 @@
 {
   "dependencies": {
+    "@google-cloud/local-auth": "^2.1.0",
+    "axios": "^1.5.0",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "google-auth-library": "^9.0.0",
+    "google-cal-meet-api": "^1.1.7",
+    "google-meet-api": "^1.0.0",
+    "googleapis": "^105.0.0",
     "jsonwebtoken": "^9.0.1",
-    "mongodb": "^5.8.0"
+    "mongodb": "^5.8.0",
+    "passport": "^0.6.0",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-local": "^1.0.0",
+    "passport-npm": "^2.0.0"
   },
   "name": "planpicker_server",
   "description": "",
   "version": "1.0.0",
   "main": "index.js",
-  "devDependencies": {},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon index.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nrb04/PLANpicker_server.git"
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/nrb04/PLANpicker_server/issues"
-  },
-  "homepage": "https://github.com/nrb04/PLANpicker_server#readme"
+  "license": "ISC"
 }
