@@ -65,159 +65,23 @@ async function run() {
     const blogsCollection = client.db("PlanPickerDb").collection("blogs");
     const planCollection = client.db("PlanPickerDb").collection("morePlan");
 
+
+
+
+    //Add Event and google and zoom dynamic link
     app.post("/addEvent", async (req, res) => {
       const addEvent = req.body;
-
-      const result = await addEventCollection.insertOne(addEvent);
-      res.send(result);
-    });
-
-    app.get("/getEvent", async (req, res) => {
-      const result = await addEventCollection.find().toArray();
-      res.send(result);
-    });
-
-
-    app.get('/getEvent/:id', async (req, res) => {
-      const id = req.params.id
-      const query = { _id: new ObjectId(id) }
-      const result = await addEventCollection.find(query).toArray();
-
-    })
-
-      //JWT
-      app.post('/jwt', (req, res) => {
-        const user = req.body;
-        console.log(user)
-        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "7d" })
-        console.log(token)
-        res.send({ token })
-      })
-
-      const verifyAdmin = async (req, res, next) => {
-        const email = req.decoded.email;
-        const query = { email: email }
-        const user = await usersCollection.findOne(query)
-        if (user?.role !== 'admin') {
-          return res.status(403).send({ error: true, message: 'forbidden access' })
-        }
-        next()
-      }
-
-
-      // users related apis
-      //get user
-      app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
-        const result = await usersCollection.find().toArray()
-        res.send(result)
-      })
-
-      //email user
-      app.get('/users/:email', async (req, res) => {
-        console.log(req.params.email);
-        const result = await usersCollection.find({ email: req.params.email }).toArray()
-        return res.send(result)
-      })
-      //id
-      app.get('/users/:id', async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) }
-        console.log(query);
-        const result = await usersCollection.findOne(query)
-        res.send(result)
-      })
-
-      //post user
-      app.post('/users', async (req, res) => {
-        const user = req.body;
-        console.log(user);
-        const query = { email: user?.email }
-        const existingUser = await usersCollection.findOne(query)
-        console.log("existingUser", existingUser);
-        if (existingUser) {
-          return res.send({ message: 'user already exist' })
-        }
-        const result = await usersCollection.insertOne(user)
-        res.send(result)
-      })
-
-      //security layer:verifyJWT
-      //same email
-      //check admin
-      app.get('/users/admin/:email', verifyJWT, async (req, res) => {
-        const email = req.params.email;
-        if (req.decoded.email !== email) {
-          res.send({ admin: false })
-        }
-
-        const query = { email: email }
-        const user = await usersCollection.findOne(query);
-        const result = { admin: user?.role === 'admin' }
-        res.send(result);
-      })
-
-      //make admin
-      app.patch('/users/admin/:id', async (req, res) => {
-        const id = req.params.id;
-        const filter = { _id: new ObjectId(id) }
-        const updatedDoc = {
-          $set: {
-            role: "admin"
-          }
-        }
-        const result = await usersCollection.updateOne(filter, updatedDoc)
-        res.send(result)
-      })
-
-
-      //delete
-      app.delete('/deleteuser/:id', async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) }
-        const result = await usersCollection.deleteOne(query)
-        res.send(result)
-      })
-
-
-
-      //profile information
-      //update
-      app.put('/updateuser/:email', async (req, res) => {
-        const email = req.params.email;
-        const user = req.body;
-        const filter = { email: email }
-        const options = { upsert: true };
-        const users = {
-          $set: {
-            ...user
-          },
-        }
-        const result = await usersCollection.updateOne(filter, users, options)
-      });
-
-
-      // blogs
-
-      app.get('/blogs', async (req, res) => {
-        const result = await blogsCollection.find().toArray()
-
-        res.send(result)
-
-      })
+      const { eventName, formData, location } = req.body;
+      const { eventDuration, startDate, endDate, startTime, selectedTimezone } = formData;
+      const { label } = selectedTimezone;
 
 
       // Express route to create a Zoom meeting
-      app.post("/createMeeting", async (req, res) => {
-        // const { topic, duration, start_date, start_time } = req.body;
-        const { eventName, formData, location } = req.body;
-        const { eventDuration, startDate, startTime } = formData
+      if (location === "Zoom") {
 
-
-        if (location === "Zoom") {
-
-          try {
-            // Zoom API setup
-            const axios = require('axios');
+        try {
+          // Zoom API setup
+          const axios = require('axios');
 
           const client_id = "YjrODn1WT4WA1f83jICVuQ";
           const account_id = "Pyy1V6i_T3uZGOgt9tD6Sg";
@@ -228,14 +92,14 @@ async function run() {
 
 
 
-            async function createMeeting(topic, duration, start_date, start_time) {
-              try {
-                // Get the access token
-                const authData = {
-                  grant_type: "account_credentials",
-                  account_id: account_id,
-                  client_secret: client_secret,
-                };
+          async function createMeeting(topic, duration, start_date, start_time) {
+            try {
+              // Get the access token
+              const authData = {
+                grant_type: "account_credentials",
+                account_id: account_id,
+                client_secret: client_secret,
+              };
 
               const authResponse = await axios.post(auth_token_url, null, {
                 auth: {
@@ -265,9 +129,9 @@ async function run() {
                 type: 2,
               };
 
-                const meetingResponse = await axios.post(`${api_base_url}/users/me/meetings`, payload, {
-                  headers: headers,
-                });
+              const meetingResponse = await axios.post(`${api_base_url}/users/me/meetings`, payload, {
+                headers: headers,
+              });
 
               if (meetingResponse.status !== 201) {
                 console.error("Unable to generate meeting link");
@@ -287,42 +151,41 @@ async function run() {
               };
 
               console.log(content);
+              meetLink = content.meeting_url
+              getLink(content.meeting_url)
 
-
-
-                res.send(content)
-              } catch (error) {
-                console.error(error.message);
-              }
+              // res.send(content)
+            } catch (error) {
+              console.error(error.message);
             }
-
-
-            createMeeting(
-              eventName,
-              eventDuration,
-              startDate,
-              startTime
-            );
-
-          } catch (error) {
-            console.error(error);
-            res.status(500).json({ error: "Failed to create meeting" });
           }
-        } else {
-          try {
-            const fs = require('fs').promises;
-            const path = require('path');
-            const process = require('process');
-            const { authenticate } = require('@google-cloud/local-auth');
-            const { google } = require('googleapis');
 
-            // If modifying these scopes, delete token.json.
-            const SCOPES = ['https://www.googleapis.com/auth/calendar'];
-            // The file token.json stores the user's access and refresh tokens, and is
-            // created automatically when the authorization flow completes for the first
-            // time.
-            const TOKEN_PATH = path.join(process.cwd(), 'token.json');
-            const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
+          createMeeting(
+            eventName,
+            eventDuration,
+            startDate,
+            startTime
+          );
+
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: "Failed to create meeting" });
+        }
+      } else {
+        try {
+          const fs = require('fs').promises;
+          const path = require('path');
+          const process = require('process');
+          const { authenticate } = require('@google-cloud/local-auth');
+          const { google } = require('googleapis');
+
+          // If modifying these scopes, delete token.json.
+          const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+          // The file token.json stores the user's access and refresh tokens, and is
+          // created automatically when the authorization flow completes for the first
+          // time.
+          const TOKEN_PATH = path.join(process.cwd(), 'token.json');
+          const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
 
           /**
            * Reads previously authorized credentials from the save file.
@@ -339,24 +202,24 @@ async function run() {
             }
           }
 
-            /**
-             * Serializes credentials to a file compatible with GoogleAUth.fromJSON.
-             *
-             * @param {OAuth2Client} client
-             * @return {Promise<void>}
-             */
-            async function saveCredentials(client) {
-              const content = await fs.readFile(CREDENTIALS_PATH);
-              const keys = JSON.parse(content);
-              const key = keys.installed || keys.web;
-              const payload = JSON.stringify({
-                type: 'authorized_user',
-                client_id: key.client_id,
-                client_secret: key.client_secret,
-                refresh_token: client.credentials.refresh_token,
-              });
-              await fs.writeFile(TOKEN_PATH, payload);
-            }
+          /**
+           * Serializes credentials to a file compatible with GoogleAUth.fromJSON.
+           *
+           * @param {OAuth2Client} client
+           * @return {Promise<void>}
+           */
+          async function saveCredentials(client) {
+            const content = await fs.readFile(CREDENTIALS_PATH);
+            const keys = JSON.parse(content);
+            const key = keys.installed || keys.web;
+            const payload = JSON.stringify({
+              type: 'authorized_user',
+              client_id: key.client_id,
+              client_secret: key.client_secret,
+              refresh_token: client.credentials.refresh_token,
+            });
+            await fs.writeFile(TOKEN_PATH, payload);
+          }
 
           /**
            * Load or request authorization to call APIs.
@@ -377,107 +240,279 @@ async function run() {
             return client;
           }
 
-            /**
-             * Create a new Google Calendar event with Google Meet link.
-             *
-             * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
-             */
-            async function createGoogleCalendarEvent(auth) {
-              const calendar = google.calendar({ version: 'v3', auth });
+          /**
+           * Create a new Google Calendar event with Google Meet link.
+           *
+           * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
+           */
+          async function createGoogleCalendarEvent(auth) {
+            const calendar = google.calendar({ version: 'v3', auth });
 
-              // Define the event details
-              const eventDetails = {
-                summary: 'Sample Event',
-                location: 'Online', // You can set this to 'Online' for Google Meet events
-                start: {
-                  dateTime: '2023-09-03T10:00:00', // Replace with your desired start time
-                  timeZone: 'America/New_York', // Replace with the desired time zone
+            // Define the event details
+            const eventDetails = {
+              summary: eventName,
+              location: 'Online', // You can set this to 'Online' for Google Meet events
+              start: {
+                dateTime: startDate, // Replace with your desired start time
+                timeZone: label, // Replace with the desired time zone
+              },
+              end: {
+                dateTime: endDate, // Replace with your desired end time
+                timeZone: label, // Replace with the desired time zone
+              },
+              conferenceData: {
+                createRequest: {
+                  requestId: 'your-request-id', // Replace with your own request ID
                 },
-                end: {
-                  dateTime: '2023-09-03T11:00:00', // Replace with your desired end time
-                  timeZone: 'America/New_York', // Replace with the desired time zone
-                },
-                conferenceData: {
-                  createRequest: {
-                    requestId: 'your-request-id', // Replace with your own request ID
-                  },
-                },
-              };
+              },
+            };
 
-              try {
-                const response = await calendar.events.insert({
-                  calendarId: 'primary', // Replace with your calendar ID
-                  resource: eventDetails,
-                  sendNotifications: true,
-                  conferenceDataVersion: 1,
-                });
+            try {
+              const response = await calendar.events.insert({
+                calendarId: 'primary', // Replace with your calendar ID
+                resource: eventDetails,
+                sendNotifications: true,
+                conferenceDataVersion: 1,
+              });
 
-                const createdEvent = response.data;
-                console.log('Event created:', createdEvent);
+              const createdEvent = response.data;
+              console.log('Event created:', createdEvent);
 
-                // Get the Google Meet link
-                const meetLink = createdEvent.hangoutLink;
-                console.log('Google Meet link:', meetLink);
+              // Get the Google Meet link
+              const meetLink = createdEvent.hangoutLink;
+              console.log('Google Meet link:', meetLink);
 
-                const googleMeetLink = {
-                  meetLink: meetLink,
-                }
+              getLink(meetLink)
+              console.log(meetLink)
 
-                res.send(googleMeetLink)
 
-              } catch (err) {
-                console.error('Error creating event:', err);
-              }
+            } catch (err) {
+              console.error('Error creating event:', err);
             }
 
-            // Main function to authorize and create the Google Calendar event
-            async function main() {
-              try {
-                const authClient = await authorize();
-                await createGoogleCalendarEvent(authClient);
-              } catch (error) {
-                console.error('Error:', error);
-              }
-            }
-
-            // Run the main function
-            main();
-          } catch (error) {
-            console.log(error)
           }
+
+          // Main function to authorize and create the Google Calendar event
+          async function main() {
+            try {
+              const authClient = await authorize();
+              await createGoogleCalendarEvent(authClient);
+            } catch (error) {
+              console.error('Error:', error);
+            }
+          }
+
+          // Run the main function
+          main();
+        } catch (error) {
+          console.log(error)
         }
-      })
+      }
+
+
+      async function getLink(meetLink) {
+
+        const dataLink = await meetLink
+        const link = {
+          meetLink: dataLink,
+        }
+
+        const linkData = { ...addEvent, link }
+
+        const result = await addEventCollection.insertOne(linkData);
+        res.send(result);
+        // res.send(link)
+      }
+
+    });
+
+
+    app.get("/getEvent", async (req, res) => {
+      const result = await addEventCollection.find().toArray();
+      res.send(result);
+    });
+
+
+    app.get('/getEvent/:id', async (req, res) => {
+      const id = req.params.id
+      // const query = { _id: new ObjectId(id) }
+      const result = await addEventCollection.find({ id }).toArray();
+
+      res.send(result)
+    })
+
+
+    app.get('/getEventByEmail/:email', async (req, res) => {
+      const email = req.params.email
+      const result = await addEventCollection.find({ email }).toArray();
+      res.send(result)
+
+    })
+
+
+    app.delete('/deleteEventById/:id', async (req, res) => {
+      const id = req.params.id
+      const result = await addEventCollection.deleteOne({id});
+      res.send(result)
+      console.log(id)
+    })
 
 
 
+    //JWT
+    app.post('/jwt', (req, res) => {
+      const user = req.body;
+      console.log(user)
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "7d" })
+      console.log(token)
+      res.send({ token })
+    })
 
 
-      app.get('/blogs/:id', async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: id }
-        const result = await blogsCollection.findOne(query)
-        res.send(result)
-
-      })
-
-      // plans
-
-      app.get('/plans', async (req, res) => {
-        const result = await planCollection.find().toArray()
-        res.send(result)
-      })
-
-
-
-      // Send a ping to confirm a successful connection
-
-      await client.db("admin").command({ ping: 1 });
-      console.log("Pinged your deployment. You successfully connected to MongoDB!");
-    } finally {
-      // Ensures that the client will close when you finish/error
-      // await client.close();
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email }
+      const user = await usersCollection.findOne(query)
+      if (user?.role !== 'admin') {
+        return res.status(403).send({ error: true, message: 'forbidden access' })
+      }
+      next()
     }
+
+
+    // users related apis
+    //get user
+    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await usersCollection.find().toArray()
+      res.send(result)
+    })
+
+    //email user
+    app.get('/users/:email', async (req, res) => {
+      console.log(req.params.email);
+      const result = await usersCollection.find({ email: req.params.email }).toArray()
+      return res.send(result)
+    })
+
+
+    //id
+    app.get('/users/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      console.log(query);
+      const result = await usersCollection.findOne(query)
+      res.send(result)
+    })
+
+
+    //post user
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+      console.log(user);
+      const query = { email: user?.email }
+      const existingUser = await usersCollection.findOne(query)
+      console.log("existingUser", existingUser);
+      if (existingUser) {
+        return res.send({ message: 'user already exist' })
+      }
+      const result = await usersCollection.insertOne(user)
+      res.send(result)
+    })
+
+
+    //security layer:verifyJWT
+    //same email
+    //check admin
+    app.get('/users/admin/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (req.decoded.email !== email) {
+        res.send({ admin: false })
+      }
+
+      const query = { email: email }
+      const user = await usersCollection.findOne(query);
+      const result = { admin: user?.role === 'admin' }
+      res.send(result);
+    })
+
+
+    //make admin
+    app.patch('/users/admin/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updatedDoc = {
+        $set: {
+          role: "admin"
+        }
+      }
+      const result = await usersCollection.updateOne(filter, updatedDoc)
+      res.send(result)
+    })
+
+
+    //delete
+    app.delete('/deleteuser/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await usersCollection.deleteOne(query)
+      res.send(result)
+    })
+
+
+
+    //profile information
+    //update
+    app.put('/updateuser/:email', async (req, res) => {
+      const email = req.params.email;
+      const user = req.body;
+      const filter = { email: email }
+      const options = { upsert: true };
+      const users = {
+        $set: {
+          ...user
+        },
+      }
+      const result = await usersCollection.updateOne(filter, users, options)
+    });
+
+
+    // blogs
+
+    app.get('/blogs', async (req, res) => {
+      const result = await blogsCollection.find().toArray()
+
+      res.send(result)
+
+    })
+
+
+
+    app.get('/blogs/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: id }
+      const result = await blogsCollection.findOne(query)
+      res.send(result)
+
+    })
+
+
+    // plans
+    app.get('/plans', async (req, res) => {
+      const result = await planCollection.find().toArray()
+      res.send(result)
+    })
+
+
+
+    // Send a ping to confirm a successful connection
+
+    await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+  } finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
   }
+}
 
 run().catch(console.dir);
 
@@ -487,6 +522,6 @@ app.get("/", (req, res) => {
 
 
 
-  app.listen(port, () => {
-    console.log(`Server is running on port: ${port}`);
-  });
+app.listen(port, () => {
+  console.log(`Server is running on port: ${port}`);
+});
