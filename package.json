@@ -12,7 +12,7 @@
     "google-meet-api": "^1.0.0",
     "googleapis": "^105.0.0",
     "jsonwebtoken": "^9.0.1",
-    "mongodb": "^5.8.0",
+    "mongodb": "^5.8.1",
     "passport": "^0.6.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-local": "^1.0.0",
