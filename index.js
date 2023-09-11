@@ -42,8 +42,7 @@ const verifyJWT = (req, res, next) => {
 };
 
 const { MongoClient, ServerApiVersion } = require("mongodb");
-const uri =
-  "mongodb+srv://planPicker:YcfhIhEj7NsAhwYZ@cluster0.4mtnldq.mongodb.net/?retryWrites=true&w=majority";
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.4mtnldq.mongodb.net/?retryWrites=true&w=majority`;
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
@@ -55,7 +54,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     //collection Name
     const addEventCollection = client.db("PlanPickerDb").collection("addEvent");
@@ -73,7 +72,6 @@ async function run() {
         currency: "usd",
         payment_method_types: ["card"],
       });
-
       res.send({
         clientSecret: paymentIntent.client_secret,
       });
@@ -88,11 +86,11 @@ async function run() {
     // specific card load
     app.get("/paymentCard/:id", async (req, res) => {
       const id = req.params.id;
-      console.log("id", id);
+      // console.log("id", id);
       const query = { _id: new ObjectId(id) };
       const singleCard = await paymentCard.findOne(query);
       res.send(singleCard);
-      console.log(singleCard);
+      // console.log(singleCard);
     });
 
     //Add Event and google and zoom dynamic link
@@ -102,7 +100,6 @@ async function run() {
       const { eventDuration, startDate, endDate, startTime, selectedTimezone } =
         formData;
       const { label } = selectedTimezone;
-
       // Express route to create a Zoom meeting
       if (location === "Zoom") {
         try {
@@ -129,7 +126,6 @@ async function run() {
                 account_id: account_id,
                 client_secret: client_secret,
               };
-
               const authResponse = await axios.post(auth_token_url, null, {
                 auth: {
                   username: client_id,
@@ -142,7 +138,6 @@ async function run() {
                 console.error("Unable to get access token");
                 return;
               }
-
               const access_token = authResponse.data.access_token;
 
               // Create the meeting
@@ -325,7 +320,6 @@ async function run() {
               console.error("Error:", error);
             }
           }
-
           // Run the main function
           main();
         } catch (error) {
@@ -338,9 +332,7 @@ async function run() {
         const link = {
           meetLink: dataLink,
         };
-
         const linkData = { ...addEvent, link };
-
         const result = await addEventCollection.insertOne(linkData);
         res.send(result);
         // res.send(link)
@@ -356,7 +348,14 @@ async function run() {
       const id = req.params.id;
       // const query = { _id: new ObjectId(id) }
       const result = await addEventCollection.find({ id }).toArray();
+      res.send(result);
+    });
 
+    app.get("/getEventData/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await addEventCollection.find(query).toArray();
+      console.log(id);
       res.send(result);
     });
 
@@ -380,7 +379,7 @@ async function run() {
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "7d",
       });
-      console.log(token);
+      // console.log(token);
       res.send({ token });
     });
 
@@ -405,7 +404,7 @@ async function run() {
 
     //email user
     app.get("/users/:email", async (req, res) => {
-      console.log(req.params.email);
+      // console.log(req.params.email);
       const result = await usersCollection
         .find({ email: req.params.email })
         .toArray();
@@ -416,7 +415,7 @@ async function run() {
     app.get("/users/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      console.log(query);
+      // console.log(query);
       const result = await usersCollection.findOne(query);
       res.send(result);
     });
@@ -443,7 +442,6 @@ async function run() {
       if (req.decoded.email !== email) {
         res.send({ admin: false });
       }
-
       const query = { email: email };
       const user = await usersCollection.findOne(query);
       const result = { admin: user?.role === "admin" };
@@ -490,7 +488,6 @@ async function run() {
 
     app.get("/blogs", async (req, res) => {
       const result = await blogsCollection.find().toArray();
-
       res.send(result);
     });
 
