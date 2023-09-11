@@ -62,6 +62,7 @@ async function run() {
     const blogsCollection = client.db("PlanPickerDb").collection("blogs");
     const planCollection = client.db("PlanPickerDb").collection("morePlan");
     const paymentCard = client.db("PlanPickerDb").collection("payment");
+    const reviewsCollection = client.db("PlanPickerDb").collection("reviews");
 
     // create stripe payment intent
     app.post("/create-payment-intent", async (req, res) => {
@@ -369,13 +370,13 @@ async function run() {
       const id = req.params.id;
       const result = await addEventCollection.deleteOne({ id });
       res.send(result);
-      console.log(id);
+      // console.log(id);
     });
 
     //JWT
     app.post("/jwt", (req, res) => {
       const user = req.body;
-      console.log(user);
+      // console.log(user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
         expiresIn: "7d",
       });
@@ -394,6 +395,20 @@ async function run() {
       }
       next();
     };
+
+    // review collection here
+    app.post("/reviews", async (req, res) => {
+      const item = req.body;
+      // console.log(item);
+      const result = await reviewsCollection.insertOne(item);
+      res.send(result);
+    });
+
+    // review collection get
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    });
 
     // users related apis
     //get user
@@ -423,7 +438,7 @@ async function run() {
     //post user
     app.post("/users", async (req, res) => {
       const user = req.body;
-      console.log(user);
+      // console.log(user);
       const query = { email: user?.email };
       const existingUser = await usersCollection.findOne(query);
       console.log("existingUser", existingUser);
