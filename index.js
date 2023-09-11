@@ -42,8 +42,7 @@ const verifyJWT = (req, res, next) => {
 };
 
 const { MongoClient, ServerApiVersion } = require("mongodb");
-const uri =
-  "mongodb+srv://planPicker:YcfhIhEj7NsAhwYZ@cluster0.4mtnldq.mongodb.net/?retryWrites=true&w=majority";
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.4mtnldq.mongodb.net/?retryWrites=true&w=majority`;
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
@@ -62,151 +61,46 @@ async function run() {
     const usersCollection = client.db("PlanPickerDb").collection("users");
     const blogsCollection = client.db("PlanPickerDb").collection("blogs");
     const planCollection = client.db("PlanPickerDb").collection("morePlan");
+    const paymentCard = client.db("PlanPickerDb").collection("payment");
 
+    // create stripe payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+    // payment card load
+    app.get("/paymentCard", async (req, res) => {
+      const result = await paymentCard.find().toArray();
+      res.send(result);
+    });
+
+    // specific card load
+    app.get("/paymentCard/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log("id", id);
+      const query = { _id: new ObjectId(id) };
+      const singleCard = await paymentCard.findOne(query);
+      res.send(singleCard);
+      // console.log(singleCard);
+    });
+
+    //Add Event and google and zoom dynamic link
     app.post("/addEvent", async (req, res) => {
       const addEvent = req.body;
-
-      const result = await addEventCollection.insertOne(addEvent);
-      res.send(result);
-    });
-
-    app.get("/getEvent", async (req, res) => {
-      const result = await addEventCollection.find().toArray();
-      res.send(result);
-    });
-
-    app.get("/getEvent/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await addEventCollection.find(query).toArray();
-    });
-
-    //JWT
-    app.post("/jwt", (req, res) => {
-      const user = req.body;
-      console.log(user);
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "7d",
-      });
-      console.log(token);
-      res.send({ token });
-    });
-
-    const verifyAdmin = async (req, res, next) => {
-      const email = req.decoded.email;
-      const query = { email: email };
-      const user = await usersCollection.findOne(query);
-      if (user?.role !== "admin") {
-        return res
-          .status(403)
-          .send({ error: true, message: "forbidden access" });
-      }
-      next();
-    };
-
-    // users related apis
-    //get user
-    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
-      const result = await usersCollection.find().toArray();
-      res.send(result);
-    });
-
-    //email user
-    app.get("/users/:email", async (req, res) => {
-      console.log(req.params.email);
-      const result = await usersCollection
-        .find({ email: req.params.email })
-        .toArray();
-      return res.send(result);
-    });
-    //id
-    app.get("/users/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      console.log(query);
-      const result = await usersCollection.findOne(query);
-      res.send(result);
-    });
-
-    //post user
-    app.post("/users", async (req, res) => {
-      const user = req.body;
-      console.log(user);
-      const query = { email: user?.email };
-      const existingUser = await usersCollection.findOne(query);
-      console.log("existingUser", existingUser);
-      if (existingUser) {
-        return res.send({ message: "user already exist" });
-      }
-      const result = await usersCollection.insertOne(user);
-      res.send(result);
-    });
-
-    //security layer:verifyJWT
-    //same email
-    //check admin
-    app.get("/users/admin/:email", verifyJWT, async (req, res) => {
-      const email = req.params.email;
-      if (req.decoded.email !== email) {
-        res.send({ admin: false });
-      }
-
-      const query = { email: email };
-      const user = await usersCollection.findOne(query);
-      const result = { admin: user?.role === "admin" };
-      res.send(result);
-    });
-
-    //make admin
-    app.patch("/users/admin/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          role: "admin",
-        },
-      };
-      const result = await usersCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
-
-    //delete
-    app.delete("/deleteuser/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await usersCollection.deleteOne(query);
-      res.send(result);
-    });
-
-    //profile information
-    //update
-    app.put("/updateuser/:email", async (req, res) => {
-      const email = req.params.email;
-      const user = req.body;
-      const filter = { email: email };
-      const options = { upsert: true };
-      const users = {
-        $set: {
-          ...user,
-        },
-      };
-      const result = await usersCollection.updateOne(filter, users, options);
-    });
-
-    // blogs
-
-    app.get("/blogs", async (req, res) => {
-      const result = await blogsCollection.find().toArray();
-
-      res.send(result);
-    });
-
-    // Express route to create a Zoom meeting
-    app.post("/createMeeting", async (req, res) => {
-      // const { topic, duration, start_date, start_time } = req.body;
       const { eventName, formData, location } = req.body;
-      const { eventDuration, startDate, startTime } = formData;
-
+      const { eventDuration, startDate, endDate, startTime, selectedTimezone } =
+        formData;
+      const { label } = selectedTimezone;
+      // Express route to create a Zoom meeting
       if (location === "Zoom") {
         try {
           // Zoom API setup
@@ -232,7 +126,6 @@ async function run() {
                 account_id: account_id,
                 client_secret: client_secret,
               };
-
               const authResponse = await axios.post(auth_token_url, null, {
                 auth: {
                   username: client_id,
@@ -245,7 +138,6 @@ async function run() {
                 console.error("Unable to get access token");
                 return;
               }
-
               const access_token = authResponse.data.access_token;
 
               // Create the meeting
@@ -287,8 +179,10 @@ async function run() {
               };
 
               console.log(content);
+              meetLink = content.meeting_url;
+              getLink(content.meeting_url);
 
-              res.send(content);
+              // res.send(content)
             } catch (error) {
               console.error(error.message);
             }
@@ -378,15 +272,15 @@ async function run() {
 
             // Define the event details
             const eventDetails = {
-              summary: "Sample Event",
+              summary: eventName,
               location: "Online", // You can set this to 'Online' for Google Meet events
               start: {
-                dateTime: "2023-09-03T10:00:00", // Replace with your desired start time
-                timeZone: "America/New_York", // Replace with the desired time zone
+                dateTime: startDate, // Replace with your desired start time
+                timeZone: label, // Replace with the desired time zone
               },
               end: {
-                dateTime: "2023-09-03T11:00:00", // Replace with your desired end time
-                timeZone: "America/New_York", // Replace with the desired time zone
+                dateTime: endDate, // Replace with your desired end time
+                timeZone: label, // Replace with the desired time zone
               },
               conferenceData: {
                 createRequest: {
@@ -410,11 +304,8 @@ async function run() {
               const meetLink = createdEvent.hangoutLink;
               console.log("Google Meet link:", meetLink);
 
-              const googleMeetLink = {
-                meetLink: meetLink,
-              };
-
-              res.send(googleMeetLink);
+              getLink(meetLink);
+              console.log(meetLink);
             } catch (err) {
               console.error("Error creating event:", err);
             }
@@ -429,13 +320,175 @@ async function run() {
               console.error("Error:", error);
             }
           }
-
           // Run the main function
           main();
         } catch (error) {
           console.log(error);
         }
       }
+
+      async function getLink(meetLink) {
+        const dataLink = await meetLink;
+        const link = {
+          meetLink: dataLink,
+        };
+        const linkData = { ...addEvent, link };
+        const result = await addEventCollection.insertOne(linkData);
+        res.send(result);
+        // res.send(link)
+      }
+    });
+
+    app.get("/getEvent", async (req, res) => {
+      const result = await addEventCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/getEvent/:id", async (req, res) => {
+      const id = req.params.id;
+      // const query = { _id: new ObjectId(id) }
+      const result = await addEventCollection.find({ id }).toArray();
+      res.send(result);
+    });
+
+    app.get("/getEventData/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await addEventCollection.find(query).toArray();
+      console.log(id);
+      res.send(result);
+    });
+
+    app.get("/getEventByEmail/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await addEventCollection.find({ email }).toArray();
+      res.send(result);
+    });
+
+    app.delete("/deleteEventById/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await addEventCollection.deleteOne({ id });
+      res.send(result);
+      console.log(id);
+    });
+
+    //JWT
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      console.log(user);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "7d",
+      });
+      // console.log(token);
+      res.send({ token });
+    });
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+      next();
+    };
+
+    // users related apis
+    //get user
+    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    //email user
+    app.get("/users/:email", async (req, res) => {
+      // console.log(req.params.email);
+      const result = await usersCollection
+        .find({ email: req.params.email })
+        .toArray();
+      return res.send(result);
+    });
+
+    //id
+    app.get("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      // console.log(query);
+      const result = await usersCollection.findOne(query);
+      res.send(result);
+    });
+
+    //post user
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      console.log(user);
+      const query = { email: user?.email };
+      const existingUser = await usersCollection.findOne(query);
+      console.log("existingUser", existingUser);
+      if (existingUser) {
+        return res.send({ message: "user already exist" });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+
+    //security layer:verifyJWT
+    //same email
+    //check admin
+    app.get("/users/admin/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (req.decoded.email !== email) {
+        res.send({ admin: false });
+      }
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const result = { admin: user?.role === "admin" };
+      res.send(result);
+    });
+
+    //make admin
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+
+    //delete
+    app.delete("/deleteuser/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    //profile information
+    //update
+    app.put("/updateuser/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = req.body;
+      const filter = { email: email };
+      const options = { upsert: true };
+      const users = {
+        $set: {
+          ...user,
+        },
+      };
+      const result = await usersCollection.updateOne(filter, users, options);
+    });
+
+    // blogs
+
+    app.get("/blogs", async (req, res) => {
+      const result = await blogsCollection.find().toArray();
+      res.send(result);
     });
 
     app.get("/blogs/:id", async (req, res) => {
@@ -446,7 +499,6 @@ async function run() {
     });
 
     // plans
-
     app.get("/plans", async (req, res) => {
       const result = await planCollection.find().toArray();
       res.send(result);
