@@ -1,10 +1,11 @@
 const express = require("express");
 const app = express();
-const cors = require("cors");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_TOKEN);
 const bodyParser = require("body-parser");
 const { ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const cors = require("cors");
 
 const port = process.env.PORT || 5000;
 
@@ -54,7 +55,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     //collection Name
     const addEventCollection = client.db("PlanPickerDb").collection("addEvent");
