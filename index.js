@@ -57,7 +57,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     //collection Name
     const addEventCollection = client.db("PlanPickerDb").collection("addEvent");
@@ -89,7 +89,6 @@ async function run() {
 
           const auth_token_url = "https://zoom.us/oauth/token";
           const api_base_url = "https://api.zoom.us/v2";
-
 
 
           async function createMeeting(topic, duration, start_date, start_time) {
@@ -150,8 +149,7 @@ async function run() {
                 status: 1,
               };
 
-              console.log(content);
-              meetLink = content.meeting_url
+
               getLink(content.meeting_url)
 
               // res.send(content)
@@ -189,7 +187,6 @@ async function run() {
 
           /**
            * Reads previously authorized credentials from the save file.
-           *
            * @return {Promise<OAuth2Client|null>}
            */
           async function loadSavedCredentialsIfExist() {
@@ -204,10 +201,9 @@ async function run() {
 
           /**
            * Serializes credentials to a file compatible with GoogleAUth.fromJSON.
-           *
            * @param {OAuth2Client} client
            * @return {Promise<void>}
-           */
+           **/
           async function saveCredentials(client) {
             const content = await fs.readFile(CREDENTIALS_PATH);
             const keys = JSON.parse(content);
@@ -223,7 +219,6 @@ async function run() {
 
           /**
            * Load or request authorization to call APIs.
-           *
            */
           async function authorize() {
             let client = await loadSavedCredentialsIfExist();
@@ -242,7 +237,6 @@ async function run() {
 
           /**
            * Create a new Google Calendar event with Google Meet link.
-           *
            * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
            */
           async function createGoogleCalendarEvent(auth) {
@@ -283,13 +277,10 @@ async function run() {
               console.log('Google Meet link:', meetLink);
 
               getLink(meetLink)
-              console.log(meetLink)
-
 
             } catch (err) {
               console.error('Error creating event:', err);
             }
-
           }
 
           // Main function to authorize and create the Google Calendar event
@@ -309,9 +300,7 @@ async function run() {
         }
       }
 
-
       async function getLink(meetLink) {
-
         const dataLink = await meetLink
         const link = {
           meetLink: dataLink,
@@ -321,9 +310,7 @@ async function run() {
 
         const result = await addEventCollection.insertOne(linkData);
         res.send(result);
-        // res.send(link)
       }
-
     });
 
 
@@ -337,9 +324,19 @@ async function run() {
       const id = req.params.id
       // const query = { _id: new ObjectId(id) }
       const result = await addEventCollection.find({ id }).toArray();
-
       res.send(result)
     })
+
+
+    app.get('/getEventData/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await addEventCollection.find(query).toArray();
+      console.log(id)
+      res.send(result)
+    })
+
+
 
 
     app.get('/getEventByEmail/:email', async (req, res) => {
@@ -352,7 +349,7 @@ async function run() {
 
     app.delete('/deleteEventById/:id', async (req, res) => {
       const id = req.params.id
-      const result = await addEventCollection.deleteOne({id});
+      const result = await addEventCollection.deleteOne({ id });
       res.send(result)
       console.log(id)
     })
