@@ -63,6 +63,7 @@ async function run() {
     const blogsCollection = client.db('PlanPickerDb').collection('blogs');
     const planCollection = client.db('PlanPickerDb').collection('morePlan');
     const paymentCard = client.db('PlanPickerDb').collection('payment');
+    const paymentCollection = client.db('PlanPickerDb').collection('paymentCollection');
 
 
     app.post("/addEvent", async (req, res) => {
@@ -520,7 +521,21 @@ async function run() {
     })
 
 
-    // add
+    //  user payment success information post
+    app.post('/payments', async (req, res) => {
+      const paymentData = req.body;
+      console.log(paymentData)
+      const result = await paymentCollection.insertOne(paymentData);
+      res.send(result);
+    })
+
+    // all payment information get
+    app.get('/payments', async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      console.log(result)
+      res.send(result)
+    })
+
 
 
     // Send a ping to confirm a successful connection
