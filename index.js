@@ -1,11 +1,11 @@
 const express = require("express");
 const app = express();
-const stripe = require("stripe")(process.env.STRIPE_SECRET_TOKEN);
+const cors = require("cors");
 const bodyParser = require("body-parser");
 const { ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-const cors = require("cors");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_TOKEN);
 
 const port = process.env.PORT || 5000;
 
@@ -90,11 +90,11 @@ async function run() {
     // specific card load
     app.get("/paymentCard/:id", async (req, res) => {
       const id = req.params.id;
-      // console.log("id", id);
+      console.log("id", id);
       const query = { _id: new ObjectId(id) };
       const singleCard = await paymentCard.findOne(query);
       res.send(singleCard);
-      // console.log(singleCard);
+      console.log(singleCard);
     });
 
     //  user payment success information post
