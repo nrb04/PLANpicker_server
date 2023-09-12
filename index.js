@@ -114,12 +114,8 @@ async function run() {
           const auth_token_url = "https://zoom.us/oauth/token";
           const api_base_url = "https://api.zoom.us/v2";
 
-          async function createMeeting(
-            topic,
-            duration,
-            start_date,
-            start_time
-          ) {
+
+          async function createMeeting(topic, duration, start_date, start_time) {
             try {
               // Get the access token
               const authData = {
@@ -179,9 +175,8 @@ async function run() {
                 status: 1,
               };
 
-              console.log(content);
-              meetLink = content.meeting_url;
-              getLink(content.meeting_url);
+
+              getLink(content.meeting_url)
 
               // res.send(content)
             } catch (error) {
@@ -212,7 +207,6 @@ async function run() {
 
           /**
            * Reads previously authorized credentials from the save file.
-           *
            * @return {Promise<OAuth2Client|null>}
            */
           async function loadSavedCredentialsIfExist() {
@@ -227,10 +221,9 @@ async function run() {
 
           /**
            * Serializes credentials to a file compatible with GoogleAUth.fromJSON.
-           *
            * @param {OAuth2Client} client
            * @return {Promise<void>}
-           */
+           **/
           async function saveCredentials(client) {
             const content = await fs.readFile(CREDENTIALS_PATH);
             const keys = JSON.parse(content);
@@ -246,7 +239,6 @@ async function run() {
 
           /**
            * Load or request authorization to call APIs.
-           *
            */
           async function authorize() {
             let client = await loadSavedCredentialsIfExist();
@@ -265,7 +257,6 @@ async function run() {
 
           /**
            * Create a new Google Calendar event with Google Meet link.
-           *
            * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
            */
           async function createGoogleCalendarEvent(auth) {
@@ -303,7 +294,9 @@ async function run() {
 
               // Get the Google Meet link
               const meetLink = createdEvent.hangoutLink;
-              console.log("Google Meet link:", meetLink);
+              console.log('Google Meet link:', meetLink);
+
+              getLink(meetLink)
 
               getLink(meetLink);
               console.log(meetLink);
@@ -329,14 +322,13 @@ async function run() {
       }
 
       async function getLink(meetLink) {
-        const dataLink = await meetLink;
+        const dataLink = await meetLink
         const link = {
           meetLink: dataLink,
         };
         const linkData = { ...addEvent, link };
         const result = await addEventCollection.insertOne(linkData);
         res.send(result);
-        // res.send(link)
       }
     });
 
@@ -349,22 +341,36 @@ async function run() {
       const id = req.params.id;
       // const query = { _id: new ObjectId(id) }
       const result = await addEventCollection.find({ id }).toArray();
-      res.send(result);
-    });
+      res.send(result)
+    })
 
-    app.get("/getEventData/:id", async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
+
+    app.get('/getEventData/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
       const result = await addEventCollection.find(query).toArray();
-      console.log(id);
-      res.send(result);
-    });
+      console.log(id)
+      res.send(result)
+    })
 
-    app.get("/getEventByEmail/:email", async (req, res) => {
-      const email = req.params.email;
+
+
+
+    app.get('/getEventByEmail/:email', async (req, res) => {
+      const email = req.params.email
       const result = await addEventCollection.find({ email }).toArray();
-      res.send(result);
-    });
+      res.send(result)
+
+    })
+
+
+    app.delete('/deleteEventById/:id', async (req, res) => {
+      const id = req.params.id
+      const result = await addEventCollection.deleteOne({ id });
+      res.send(result)
+      console.log(id)
+    })
+
 
     app.delete("/deleteEventById/:id", async (req, res) => {
       const id = req.params.id;
