@@ -63,6 +63,9 @@ async function run() {
     const planCollection = client.db("PlanPickerDb").collection("morePlan");
     const paymentCard = client.db("PlanPickerDb").collection("payment");
     const reviewsCollection = client.db("PlanPickerDb").collection("reviews");
+    const paymentCollection = client
+      .db("PlanPickerDb")
+      .collection("paymentCollection");
 
     // create stripe payment intent
     app.post("/create-payment-intent", async (req, res) => {
@@ -94,6 +97,21 @@ async function run() {
       // console.log(singleCard);
     });
 
+    //  user payment success information post
+    app.post("/payments", async (req, res) => {
+      const paymentData = req.body;
+      console.log(paymentData);
+      const result = await paymentCollection.insertOne(paymentData);
+      res.send(result);
+    });
+
+    // all payment information get
+    app.get("/payments", async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      console.log(result);
+      res.send(result);
+    });
+
     //Add Event and google and zoom dynamic link
     app.post("/addEvent", async (req, res) => {
       const addEvent = req.body;
@@ -114,8 +132,12 @@ async function run() {
           const auth_token_url = "https://zoom.us/oauth/token";
           const api_base_url = "https://api.zoom.us/v2";
 
-
-          async function createMeeting(topic, duration, start_date, start_time) {
+          async function createMeeting(
+            topic,
+            duration,
+            start_date,
+            start_time
+          ) {
             try {
               // Get the access token
               const authData = {
@@ -175,8 +197,7 @@ async function run() {
                 status: 1,
               };
 
-
-              getLink(content.meeting_url)
+              getLink(content.meeting_url);
 
               // res.send(content)
             } catch (error) {
@@ -294,9 +315,9 @@ async function run() {
 
               // Get the Google Meet link
               const meetLink = createdEvent.hangoutLink;
-              console.log('Google Meet link:', meetLink);
+              console.log("Google Meet link:", meetLink);
 
-              getLink(meetLink)
+              getLink(meetLink);
 
               getLink(meetLink);
               console.log(meetLink);
@@ -322,7 +343,7 @@ async function run() {
       }
 
       async function getLink(meetLink) {
-        const dataLink = await meetLink
+        const dataLink = await meetLink;
         const link = {
           meetLink: dataLink,
         };
@@ -341,36 +362,29 @@ async function run() {
       const id = req.params.id;
       // const query = { _id: new ObjectId(id) }
       const result = await addEventCollection.find({ id }).toArray();
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-
-    app.get('/getEventData/:id', async (req, res) => {
-      const id = req.params.id
-      const query = { _id: new ObjectId(id) }
+    app.get("/getEventData/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
       const result = await addEventCollection.find(query).toArray();
-      console.log(id)
-      res.send(result)
-    })
+      console.log(id);
+      res.send(result);
+    });
 
-
-
-
-    app.get('/getEventByEmail/:email', async (req, res) => {
-      const email = req.params.email
+    app.get("/getEventByEmail/:email", async (req, res) => {
+      const email = req.params.email;
       const result = await addEventCollection.find({ email }).toArray();
-      res.send(result)
+      res.send(result);
+    });
 
-    })
-
-
-    app.delete('/deleteEventById/:id', async (req, res) => {
-      const id = req.params.id
+    app.delete("/deleteEventById/:id", async (req, res) => {
+      const id = req.params.id;
       const result = await addEventCollection.deleteOne({ id });
-      res.send(result)
-      console.log(id)
-    })
-
+      res.send(result);
+      console.log(id);
+    });
 
     app.delete("/deleteEventById/:id", async (req, res) => {
       const id = req.params.id;
