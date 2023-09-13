@@ -14,7 +14,7 @@ const corsOptions = {
   origin: "*",
   credentials: true,
   optionSuccessStatus: 200,
-};
+}; 
 
 app.use(cors(corsOptions));
 app.use(express());
@@ -29,7 +29,7 @@ const verifyJWT = (req, res, next) => {
       .send({ error: true, message: "unauthorized access" });
   }
   const token = authorization.split(" ")[1];
-
+ 
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
       return res
@@ -100,7 +100,7 @@ async function run() {
       const { eventName, formData, location } = req.body;
       const { eventDuration, startDate, endDate, startTime, selectedTimezone } =
         formData;
-      const { label } = selectedTimezone;
+      const { label, value } = selectedTimezone;
       // Express route to create a Zoom meeting
       if (location === "Zoom") {
         try {
@@ -143,6 +143,8 @@ async function run() {
                 "Content-Type": "application/json",
               };
 
+              console.log(headers)
+ 
               const payload = {
                 topic: topic,
                 duration: duration,
@@ -268,11 +270,11 @@ async function run() {
               location: "Online", // You can set this to 'Online' for Google Meet events
               start: {
                 dateTime: startDate, // Replace with your desired start time
-                timeZone: label, // Replace with the desired time zone
+                timeZone: value, // Replace with the desired time zone
               },
               end: {
                 dateTime: endDate, // Replace with your desired end time
-                timeZone: label, // Replace with the desired time zone
+                timeZone: value, // Replace with the desired time zone
               },
               conferenceData: {
                 createRequest: {
@@ -296,9 +298,8 @@ async function run() {
               const meetLink = createdEvent.hangoutLink;
               console.log('Google Meet link:', meetLink);
 
-              getLink(meetLink)
 
-              getLink(meetLink);
+              await getLink(meetLink);
               console.log(meetLink);
             } catch (err) {
               console.error("Error creating event:", err);
@@ -322,15 +323,23 @@ async function run() {
       }
 
       async function getLink(meetLink) {
-        const dataLink = await meetLink
-        const link = {
-          meetLink: dataLink,
-        };
-        const linkData = { ...addEvent, link };
-        const result = await addEventCollection.insertOne(linkData);
-        res.send(result);
+        try {
+          const dataLink = await meetLink;
+          const link = {
+            meetLink: dataLink,
+          };
+
+          const eventData = {...addEvent, link}
+
+          const result = await addEventCollection.insertOne(eventData);
+          res.send(result); // Send the response once, after all async operations
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: "Failed to add event" }); // Handle errors gracefully
+        }
       }
     });
+
 
     app.get("/getEvent", async (req, res) => {
       const result = await addEventCollection.find().toArray();
@@ -349,11 +358,8 @@ async function run() {
       const id = req.params.id
       const query = { _id: new ObjectId(id) }
       const result = await addEventCollection.find(query).toArray();
-      console.log(id)
       res.send(result)
     })
-
-
 
 
     app.get('/getEventByEmail/:email', async (req, res) => {
@@ -481,7 +487,7 @@ async function run() {
       const result = await usersCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
-
+ 
     //delete
     app.delete("/deleteuser/:id", async (req, res) => {
       const id = req.params.id;
