@@ -74,18 +74,142 @@ async function run() {
     const paymentCollection = client.db('PlanPickerDb').collection('paymentCollection');
 
 
-    app.post("/addEvent", async (req, res) => {
-      const addEvent = req.body
 
+
+
+    // const sendRemainderEmail = async addEvent => {
+    //   try {
+    //     const info = await transporter.sendMail({
+    //       from: 'mdmasrafi902@gmail.com',
+    //       to: 'mdmasrafi902@gmail.com',
+    //       subject: "You",
+    //       text: "ocena manus k taka dico kn? ebr muri khaw",
+    //       html: `
+    // <!DOCTYPE html>
+    // <html>
+    // <head>
+    //     <title>Your Payment Confirmation</title>
+    // </head>
+    // <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0;">
+    //     <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+    //         <h2 style="color: #007BFF;">Payment Confirmation</h2>
+    //         <p>Dear User,</p>
+    //         <p>Your payment has been successfully processed.</p>
+    //         <p>Details of your payment:</p>
+    //         <ul>
+    //             <li>Payment Amount: </li>
+    //             <li>Transaction ID: </li>
+    //             <li>Transaction ID: </li>
+    //             <!-- Add more payment details as needed -->
+    //         </ul>
+    //         <p>Thank you for choosing our service.</p>
+    //         <p>Sincerely,</p>
+    //         <p>Plan Picker</p>
+    //     </div>
+    // </body>
+    // </html>
+    // `,
+    //     });
+    //     console.log('Email sent successfully');
+    //   } catch (error) {
+    //     console.error('Error sending email:', error);
+    //   }
+    // };
+
+
+
+
+
+    app.post("/addEvent", async (req, res) => {
+      console.log('hoho')
+      const addEvent = req.body
+      console.log(addEvent)
       const result = await addEventCollection.insertOne(addEvent);
+
       res.send(result);
+      // sendRemainderEmail(addEvent);
+      console.log(addEvent)
+
     })
+
+
+    // app.get("/getEvent", async (req, res) => {
+    //   const result = await addEventCollection.find().toArray();
+    //   res.send(result);
+    // })
+
+
+    // send email for confirm payment
+    const sendRemainderEmail = async nextDay => {
+      const info = await transporter.sendMail({
+        from: "mdmasrafi902@gmail.com",
+        to: `${nextDay.email} `,
+        subject: "Your Meeting is tomorrow",
+        // text: "ocena manus k taka dico kn? ebr muri khaw",
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Your Payment Confirmation</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+        <h2 style="color: #007BFF;">Payment Confirmation</h2>
+        <p>Dear User,</p>
+        <p>Your payment has been successfully processed.</p>
+        <p>Details of your payment:</p>
+        <ul>
+            <li>Event Name: ${nextDay.eventName}</li>
+            <li>Conference Type: ${eventName.conferenceType}</li>
+            <li>Event Link: ${nextDay.eventLink}</li>
+            <li>Meeting Time: ${nextDay.startTime} - ${nextDay.endTime}</li>
+            <!-- Add more payment details as needed -->
+        </ul>
+        <p>Thank you for choosing our service.</p>
+        <p>Sincerely,</p>
+        <p>Plan Picker</p>
+    </div>
+</body>
+</html>
+`,
+      });
+    }
+
+
+
+    app.get("/sendEventReminders", async (req, res) => {
+      try {
+        const currentDate = new Date();
+        const oneDayAhead = new Date(currentDate);
+        oneDayAhead.setDate(currentDate.getDate() + 1); // Set it to 30 days ahead
+
+        // Format oneDayAhead as "YYYY-MM-DD" string
+        const formattedDate = oneDayAhead.toISOString().split('T')[0];
+        // Query for events with a startDate within the date range
+        const query = { "formData.startDate": formattedDate };
+
+        const events = await addEventCollection.find().toArray();
+        const mapped = events.map(data => data);
+        const nextDay = mapped.filter(data => data.formData.startDate = query)
+        res.send(nextDay)
+
+        sendRemainderEmail(nextDay)
+
+        res.send({ message: "Event reminders sent successfully" });
+      } catch (error) {
+        console.error("Error sending event reminders:", error);
+        res.status(500).send({ error: "Internal server error" });
+      }
+    });
+
+
 
 
     app.get("/getEvent", async (req, res) => {
       const result = await addEventCollection.find().toArray();
-      res.send(result);
-    })
+      res.send(result)
+    });
+
 
 
     app.get('/getEvent/:id', async (req, res) => {
@@ -582,6 +706,12 @@ async function run() {
       res.send(result)
     })
 
+    app.post('/eventSend', (req, res) => {
+      const result = req.body;
+      console.log('Received data from frontend:', result);
+
+      // Your code to process the data and send a response
+    });
 
 
     // Send a ping to confirm a successful connection
