@@ -81,12 +81,31 @@ async function run() {
       res.send(result);
     })
 
+    // specific card load
+    app.get("/paymentCard/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log("id", id);
+      const query = { _id: new ObjectId(id) };
+      const singleCard = await paymentCard.findOne(query);
+      res.send(singleCard);
+      // console.log(singleCard);
+    });
+
+    //  user payment success information post
+    app.post("/payments", async (req, res) => {
+      const paymentData = req.body;
+      // console.log(paymentData);
+      const result = await paymentCollection.insertOne(paymentData);
 
     app.get("/getEvent", async (req, res) => {
       const result = await addEventCollection.find().toArray();
       res.send(result);
     })
 
+    // all payment information get
+    app.get("/payments", verifyJWT, async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      // console.log(result);
 
     app.get('/getEvent/:id', async (req, res) => {
       const id = req.params.id
@@ -205,6 +224,16 @@ async function run() {
       const result = await usersCollection.updateOne(filter, users, options)
     });
 
+    // // payment get by email
+    // app.get("/payments/:email", async (req, res) => {
+    //   const email = req.params.email;
+    //   const result = await paymentCollection.find({ email }).toArray();
+    //   res.send(result);
+    // });
+
+    //Add Event and google and zoom dynamic link
+    app.post("/addEvent", async (req, res) => {
+      const addEvent = req.body;
 
     // blogs
 
@@ -440,6 +469,14 @@ async function run() {
               });
 
               const createdEvent = response.data;
+              // console.log("Event created:", createdEvent);
+
+              // Get the Google Meet link
+              const meetLink = createdEvent.hangoutLink;
+              // console.log("Google Meet link:", meetLink);
+
+              getLink(meetLink);
+              // console.log(meetLink);
               console.log('Event created:', createdEvent);
 
               // Get the Google Meet link
@@ -476,11 +513,34 @@ async function run() {
     })
 
 
+    app.get("/getEventData/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await addEventCollection.find(query).toArray();
+      // console.log(id);
+      res.send(result);
+    });
 
-
+    app.get("/getEventByEmail/:email", async (req, res) => {
+      const email = req.params.email;
+      const result = await addEventCollection.find({ email }).toArray();
+      res.send(result);
+    });
 
     app.get('/blogs/:id', async (req, res) => {
       const id = req.params.id;
+      const result = await addEventCollection.deleteOne({ id });
+      res.send(result);
+      // console.log(id);
+    });
+
+    app.delete("/deleteEventById/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await addEventCollection.deleteOne({ id });
+      res.send(result);
+      // console.log(id);
+    });
+
       const query = { _id: id }
       const result = await blogsCollection.findOne(query)
       res.send(result)
@@ -510,6 +570,20 @@ async function run() {
       })
     })
 
+
+    //post user
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      // console.log(user);
+      const query = { email: user?.email };
+      const existingUser = await usersCollection.findOne(query);
+      // console.log("existingUser", existingUser);
+      if (existingUser) {
+        return res.send({ message: "user already exist" });
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
 
 
     // payment card load
