@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Email Template</title>
+</head>
+<body>
+    <div >
+        <div style="text-align: center;">
+            <div style="display: inline-block; padding: 8px;">
+                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: #4CAF50;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                </div>
+            </div>
+            <div style="margin-top: 6px; margin-bottom: 8px; text-align: center;">
+                <h3 style="font-size: 24px; font-weight: bold; color: #333;">This meeting is scheduled</h3>
+                <div style="margin-top: 3px;">
+                    
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; padding-top: 8px; margin-top: 8px; border-top: 1px solid #ccc; color: #333; text-align: left;">
+                    <div style="font-weight: bold;">What</div>
+                    <div style="margin-bottom: 6px;">{{eventName}} between {{hostName}} and {{name}}</div>
+                    <div style="font-weight: bold;">When</div>
+                    <div style="margin-bottom: 6px;">
+                        <div>{{selectedDate}} | {{timeDurationRange}} <span style="color: #888;">{{timeZone}}</span></div>                       
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: row; gap: 36px; color: #333; text-align: left;">
+                    <div style="font-weight: bold;">Who</div>
+                    <div style="text-align: left;">
+                        <div style="margin-bottom: 3px;"></div>
+                        <span style="margin-right: 2px;">{{hostName}} <span style="font-weight: bold; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; background-color: #007bff; padding: 1px 3px; font-size: 12px; color: #fff;">Host</span></span>
+                        
+                        <p style="color: #333;">Organizer {{hostEmail}}</p>
+                        <div style="margin-bottom: 3px;"></div>
+                        <p>{{name}} - Guest {{email}}</p>
+                        {{!-- <p>{{email}}</p> --}}
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; flex-direction: row; gap: 6px; color: #333; text-align: left;">
+                <div style="font-weight: bold;">Where</div>
+                <div style="margin-top: 3px;">{{location}} Meet</div>
+                <p style="margin: 0px;">Meeting URL: {{meetLink}}</p>
+            </div>
+        </div>
+        <hr style="margin-bottom: 8px; border: 1px solid #ccc;">
+        
+    </div>
+</div>
+</body>
+
+</html>

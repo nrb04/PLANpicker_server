@@ -6,6 +6,9 @@ const { ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const cors = require("cors");
+const nodemailer = require('nodemailer');
+const fs = require('fs');
+const handlebars = require('handlebars');
 
 const port = process.env.PORT || 5000;
 
@@ -14,7 +17,7 @@ const corsOptions = {
   origin: "*",
   credentials: true,
   optionSuccessStatus: 200,
-}; 
+};
 
 app.use(cors(corsOptions));
 app.use(express());
@@ -29,7 +32,7 @@ const verifyJWT = (req, res, next) => {
       .send({ error: true, message: "unauthorized access" });
   }
   const token = authorization.split(" ")[1];
- 
+
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
       return res
@@ -63,6 +66,9 @@ async function run() {
     const planCollection = client.db("PlanPickerDb").collection("morePlan");
     const paymentCard = client.db("PlanPickerDb").collection("payment");
     const reviewsCollection = client.db("PlanPickerDb").collection("reviews");
+    
+    const participantEventsCollection = client.db("PlanPickerDb").collection('participantEvents');
+
 
     // create stripe payment intent
     app.post("/create-payment-intent", async (req, res) => {
@@ -93,6 +99,7 @@ async function run() {
       res.send(singleCard);
       // console.log(singleCard);
     });
+
 
     //Add Event and google and zoom dynamic link
     app.post("/addEvent", async (req, res) => {
@@ -144,7 +151,7 @@ async function run() {
               };
 
               console.log(headers)
- 
+
               const payload = {
                 topic: topic,
                 duration: duration,
@@ -329,7 +336,7 @@ async function run() {
             meetLink: dataLink,
           };
 
-          const eventData = {...addEvent, link}
+          const eventData = { ...addEvent, link }
 
           const result = await addEventCollection.insertOne(eventData);
           res.send(result); // Send the response once, after all async operations
@@ -339,6 +346,141 @@ async function run() {
         }
       }
     });
+
+
+    // ==========================
+
+    // Participants events api
+    // Create a transporter object using your email service provider's SMTP settings
+    const confirmationTransporter = nodemailer.createTransport({
+      service: 'gmail', // Replace with your email service provider (e.g., 'gmail')
+      auth: {
+        user: "planpicker.web@gmail.com",
+        pass: "aokq srwx xptb yetd",
+      },
+    });
+
+    // Route to schedule an event and send event details via email and save in MongoDB
+    app.post('/participant-event', (req, res) => {
+      // Function to send event details via email
+      const sendEventDetailsEmail = (minutes,
+        timeDurationRange,
+        selectedDate,
+        eventName,
+        timeZone,
+        hostEmail,
+        participantEmail,
+        meetLink,
+        name,
+        email,
+        note,
+        location, hostName) => {
+        const emailTemplateSource = fs.readFileSync('./emailTemplate.hbs', 'utf-8');
+        const emailTemplate = handlebars.compile(emailTemplateSource);
+
+
+        const emailData = {
+          // Add other dynamic data properties as needed
+          minutes,
+          timeDurationRange,
+          selectedDate,
+          eventName,
+          timeZone,
+          hostEmail,
+          participantEmail,
+          meetLink,
+          name,
+          email,
+          note,
+          location,
+          hostName,
+        };
+
+        // Generate the email content by passing the data to the template
+        const emailContent = emailTemplate(emailData);
+
+        // Send event details via email
+        const mailOptions = {
+          from: "planpicker.web@gmail.com",
+          to: email,
+          subject: `${eventName} between ${hostName} and ${name}`,
+          // text: `Event details: ${eventDetails}`,
+          html: emailContent,
+        };
+
+        confirmationTransporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.error(error);
+          } else {
+            console.log('Email sent: ' + info.response);
+          }
+        });
+      };
+
+      // Function to save event details in MongoDB
+      const saveEventToMongoDB = async (confirmdEvent) => {
+        try {
+
+          const result = await participantEventsCollection.insertOne(confirmdEvent);
+
+          console.log('Event saved to MongoDB with ID:', result.insertedId);
+          
+          res.send(result)
+
+        } catch (error) {
+          console.error('Error saving event to MongoDB:', error);
+        }
+      };
+
+
+    
+      const confirmdEvent = req.body;
+      
+      const { minutes,
+        timeDurationRange,
+        selectedDate,
+        eventName,
+        timeZone,
+        hostEmail,
+        participantEmail,
+        meetLink,
+        name,
+        email,
+        note,
+        location, hostName } = req.body;
+
+      const dataAtCreated = {
+        created_at: new Date(),
+      };
+      // Send event details via email and save in MongoDB
+      // sendEventDetailsEmail(name, email, note, selectedDate);
+      sendEventDetailsEmail(minutes,
+        timeDurationRange,
+        selectedDate,
+        eventName,
+        timeZone,
+        hostEmail,
+        participantEmail,
+        meetLink,
+        name,
+        email,
+        note,
+        location, hostName);
+      
+      saveEventToMongoDB({...confirmdEvent, dataAtCreated});
+
+    });
+
+    // ======================
+
+
+    app.get("/getConfirmedSchdule/:id", async(req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await participantEventsCollection.find(query).toArray();
+      console.log(id)
+      res.send(result)
+    })
 
 
     app.get("/getEvent", async (req, res) => {
@@ -487,10 +629,11 @@ async function run() {
       const result = await usersCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
- 
+
     //delete
     app.delete("/deleteuser/:id", async (req, res) => {
       const id = req.params.id;
+      console.log(id)
       const query = { _id: new ObjectId(id) };
       const result = await usersCollection.deleteOne(query);
       res.send(result);
