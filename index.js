@@ -90,27 +90,34 @@ async function run() {
     // specific card load
     app.get("/paymentCard/:id", async (req, res) => {
       const id = req.params.id;
-      console.log("id", id);
+      // console.log("id", id);
       const query = { _id: new ObjectId(id) };
       const singleCard = await paymentCard.findOne(query);
       res.send(singleCard);
-      console.log(singleCard);
+      // console.log(singleCard);
     });
 
     //  user payment success information post
     app.post("/payments", async (req, res) => {
       const paymentData = req.body;
-      console.log(paymentData);
+      // console.log(paymentData);
       const result = await paymentCollection.insertOne(paymentData);
       res.send(result);
     });
 
     // all payment information get
-    app.get("/payments", async (req, res) => {
+    app.get("/payments", verifyJWT, async (req, res) => {
       const result = await paymentCollection.find().toArray();
-      console.log(result);
+      // console.log(result);
       res.send(result);
     });
+
+    // // payment get by email
+    // app.get("/payments/:email", async (req, res) => {
+    //   const email = req.params.email;
+    //   const result = await paymentCollection.find({ email }).toArray();
+    //   res.send(result);
+    // });
 
     //Add Event and google and zoom dynamic link
     app.post("/addEvent", async (req, res) => {
@@ -311,16 +318,14 @@ async function run() {
               });
 
               const createdEvent = response.data;
-              console.log("Event created:", createdEvent);
+              // console.log("Event created:", createdEvent);
 
               // Get the Google Meet link
               const meetLink = createdEvent.hangoutLink;
-              console.log("Google Meet link:", meetLink);
+              // console.log("Google Meet link:", meetLink);
 
               getLink(meetLink);
-
-              getLink(meetLink);
-              console.log(meetLink);
+              // console.log(meetLink);
             } catch (err) {
               console.error("Error creating event:", err);
             }
@@ -369,7 +374,7 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await addEventCollection.find(query).toArray();
-      console.log(id);
+      // console.log(id);
       res.send(result);
     });
 
@@ -383,7 +388,7 @@ async function run() {
       const id = req.params.id;
       const result = await addEventCollection.deleteOne({ id });
       res.send(result);
-      console.log(id);
+      // console.log(id);
     });
 
     app.delete("/deleteEventById/:id", async (req, res) => {
@@ -461,7 +466,7 @@ async function run() {
       // console.log(user);
       const query = { email: user?.email };
       const existingUser = await usersCollection.findOne(query);
-      console.log("existingUser", existingUser);
+      // console.log("existingUser", existingUser);
       if (existingUser) {
         return res.send({ message: "user already exist" });
       }
