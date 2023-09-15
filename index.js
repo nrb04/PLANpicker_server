@@ -3,6 +3,12 @@ const app = express();
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const { ObjectId } = require("mongodb");
+const jwt = require("jsonwebtoken");
+require("dotenv").config();
+const cors = require("cors");
+const nodemailer = require('nodemailer');
+const fs = require('fs');
+const handlebars = require('handlebars');
 const jwt = require('jsonwebtoken');
 const nodemailer = require("nodemailer");
 require('dotenv').config()
@@ -67,10 +73,12 @@ async function run() {
 
     //collection Name
     const addEventCollection = client.db("PlanPickerDb").collection("addEvent");
-    const usersCollection = client.db('PlanPickerDb').collection('users');
-    const blogsCollection = client.db('PlanPickerDb').collection('blogs');
-    const planCollection = client.db('PlanPickerDb').collection('morePlan');
-    const paymentCard = client.db('PlanPickerDb').collection('payment');
+    const usersCollection = client.db("PlanPickerDb").collection("users");
+    const blogsCollection = client.db("PlanPickerDb").collection("blogs");
+    const planCollection = client.db("PlanPickerDb").collection("morePlan");
+    const paymentCard = client.db("PlanPickerDb").collection("payment");
+    const reviewsCollection = client.db("PlanPickerDb").collection("reviews");
+    const participantEventsCollection = client.db("PlanPickerDb").collection('participantEvents');
     const paymentCollection = client.db('PlanPickerDb').collection('paymentCollection');
 
 
@@ -266,8 +274,11 @@ async function run() {
     app.post("/createMeeting", async (req, res) => {
       // const { topic, duration, start_date, start_time } = req.body;
       const { eventName, formData, location } = req.body;
-      const { eventDuration, startDate, startTime } = formData
 
+      const { eventDuration, startDate, endDate, startTime, selectedTimezone } =
+        formData;
+      const { label, value } = selectedTimezone;
+      // Express route to create a Zoom meeting
 
       if (location === "Zoom") {
 
@@ -313,6 +324,8 @@ async function run() {
                 Authorization: `Bearer ${access_token}`,
                 "Content-Type": "application/json",
               };
+
+              console.log(headers)
 
               const payload = {
                 topic: topic,
@@ -446,12 +459,12 @@ async function run() {
               summary: 'Sample Event',
               location: 'Online', // You can set this to 'Online' for Google Meet events
               start: {
-                dateTime: '2023-09-03T10:00:00', // Replace with your desired start time
-                timeZone: 'America/New_York', // Replace with the desired time zone
+                dateTime: startDate, // Replace with your desired start time
+                timeZone: value, // Replace with the desired time zone
               },
               end: {
-                dateTime: '2023-09-03T11:00:00', // Replace with your desired end time
-                timeZone: 'America/New_York', // Replace with the desired time zone
+                dateTime: endDate, // Replace with your desired end time
+                timeZone: value, // Replace with the desired time zone
               },
               conferenceData: {
                 createRequest: {
@@ -475,20 +488,14 @@ async function run() {
               const meetLink = createdEvent.hangoutLink;
               // console.log("Google Meet link:", meetLink);
 
-              getLink(meetLink);
+//               getLink(meetLink);
               // console.log(meetLink);
               console.log('Event created:', createdEvent);
 
               // Get the Google Meet link
               const meetLink = createdEvent.hangoutLink;
               console.log('Google Meet link:', meetLink);
-
-              const googleMeetLink = {
-                meetLink: meetLink,
-              }
-
-              res.send(googleMeetLink)
-
+              await getLink(meetLink);
             } catch (err) {
               console.error('Error creating event:', err);
             }
@@ -510,6 +517,171 @@ async function run() {
           console.log(error)
         }
       }
+
+      async function getLink(meetLink) {
+        try {
+          const dataLink = await meetLink;
+          const link = {
+            meetLink: dataLink,
+          };
+
+          const eventData = { ...addEvent, link }
+
+          const result = await addEventCollection.insertOne(eventData);
+          res.send(result); // Send the response once, after all async operations
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: "Failed to add event" }); // Handle errors gracefully
+        }
+      }
+    });
+
+
+    // ==========================
+
+    // Participants events api
+    // Create a transporter object using your email service provider's SMTP settings
+    const confirmationTransporter = nodemailer.createTransport({
+      service: 'gmail', // Replace with your email service provider (e.g., 'gmail')
+      auth: {
+        user: "planpicker.web@gmail.com",
+        pass: "aokq srwx xptb yetd",
+      },
+    });
+
+    // Route to schedule an event and send event details via email and save in MongoDB
+    app.post('/participant-event', (req, res) => {
+      // Function to send event details via email
+      const sendEventDetailsEmail = (minutes,
+        timeDurationRange,
+        selectedDate,
+        eventName,
+        timeZone,
+        hostEmail,
+        participantEmail,
+        meetLink,
+        name,
+        email,
+        note,
+        location, hostName) => {
+        const emailTemplateSource = fs.readFileSync('./emailTemplate.hbs', 'utf-8');
+        const emailTemplate = handlebars.compile(emailTemplateSource);
+
+
+        const emailData = {
+          // Add other dynamic data properties as needed
+          minutes,
+          timeDurationRange,
+          selectedDate,
+          eventName,
+          timeZone,
+          hostEmail,
+          participantEmail,
+          meetLink,
+          name,
+          email,
+          note,
+          location,
+          hostName,
+        };
+
+        // Generate the email content by passing the data to the template
+        const emailContent = emailTemplate(emailData);
+
+        // Send event details via email
+        const mailOptions = {
+          from: "planpicker.web@gmail.com",
+          to: email,
+          subject: `${eventName} between ${hostName} and ${name}`,
+          // text: `Event details: ${eventDetails}`,
+          html: emailContent,
+        };
+
+        confirmationTransporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.error(error);
+          } else {
+            console.log('Email sent: ' + info.response);
+          }
+        });
+      };
+
+      // Function to save event details in MongoDB
+      const saveEventToMongoDB = async (confirmdEvent) => {
+        try {
+
+          const result = await participantEventsCollection.insertOne(confirmdEvent);
+
+          console.log('Event saved to MongoDB with ID:', result.insertedId);
+          
+          res.send(result)
+
+        } catch (error) {
+          console.error('Error saving event to MongoDB:', error);
+        }
+      };
+
+
+    
+      const confirmdEvent = req.body;
+      
+      const { minutes,
+        timeDurationRange,
+        selectedDate,
+        eventName,
+        timeZone,
+        hostEmail,
+        participantEmail,
+        meetLink,
+        name,
+        email,
+        note,
+        location, hostName } = req.body;
+
+      const dataAtCreated = {
+        created_at: new Date(),
+      };
+      // Send event details via email and save in MongoDB
+      // sendEventDetailsEmail(name, email, note, selectedDate);
+      sendEventDetailsEmail(minutes,
+        timeDurationRange,
+        selectedDate,
+        eventName,
+        timeZone,
+        hostEmail,
+        participantEmail,
+        meetLink,
+        name,
+        email,
+        note,
+        location, hostName);
+      
+      saveEventToMongoDB({...confirmdEvent, dataAtCreated});
+
+    });
+
+    // ======================
+
+
+    app.get("/getConfirmedSchdule/:id", async(req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await participantEventsCollection.find(query).toArray();
+      console.log(id)
+      res.send(result)
+    })
+
+
+    app.get("/getEvent", async (req, res) => {
+      const result = await addEventCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/getEvent/:id", async (req, res) => {
+      const id = req.params.id;
+      // const query = { _id: new ObjectId(id) }
+      const result = await addEventCollection.find({ id }).toArray();
+      res.send(result)
     })
 
 
@@ -517,6 +689,12 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await addEventCollection.find(query).toArray();
+      res.send(result)
+    })
+
+
+    app.get('/getEventByEmail/:email', async (req, res) => {
+      const email = req.params.email
       // console.log(id);
       res.send(result);
     });
@@ -595,7 +773,6 @@ async function run() {
     // specific card load
     app.get('/paymentCard/:id', async (req, res) => {
       const id = req.params.id;
-      console.log('id', id)
       const query = { _id: new ObjectId(id) };
       const singleCard = await paymentCard.findOne(query)
       res.send(singleCard)
