@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require("nodemailer");
 require('dotenv').config()
 const stripe = require('stripe')(process.env.STRIPE_SECRET_TOKEN)
+const nodeSchedule = require('node-schedule')
 
 const port = process.env.PORT || 5000;
 
@@ -30,6 +31,15 @@ const transporter = nodemailer.createTransport({
     pass: 'pqfarwcvvweizeqp',
   },
 });
+
+const transport = nodemailer.createTransport({
+  service: 'Gmail',
+  auth: {
+    user: 'mdmasrafi902@gmail.com',
+    pass: 'pqfarwcvvweizeqp',
+  },
+});
+
 
 //middleware
 const verifyJWT = (req, res, next) => {
@@ -77,51 +87,10 @@ async function run() {
 
 
 
-    // const sendRemainderEmail = async addEvent => {
-    //   try {
-    //     const info = await transporter.sendMail({
-    //       from: 'mdmasrafi902@gmail.com',
-    //       to: 'mdmasrafi902@gmail.com',
-    //       subject: "You",
-    //       text: "ocena manus k taka dico kn? ebr muri khaw",
-    //       html: `
-    // <!DOCTYPE html>
-    // <html>
-    // <head>
-    //     <title>Your Payment Confirmation</title>
-    // </head>
-    // <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0;">
-    //     <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-    //         <h2 style="color: #007BFF;">Payment Confirmation</h2>
-    //         <p>Dear User,</p>
-    //         <p>Your payment has been successfully processed.</p>
-    //         <p>Details of your payment:</p>
-    //         <ul>
-    //             <li>Payment Amount: </li>
-    //             <li>Transaction ID: </li>
-    //             <li>Transaction ID: </li>
-    //             <!-- Add more payment details as needed -->
-    //         </ul>
-    //         <p>Thank you for choosing our service.</p>
-    //         <p>Sincerely,</p>
-    //         <p>Plan Picker</p>
-    //     </div>
-    // </body>
-    // </html>
-    // `,
-    //     });
-    //     console.log('Email sent successfully');
-    //   } catch (error) {
-    //     console.error('Error sending email:', error);
-    //   }
-    // };
-
-
 
 
 
     app.post("/addEvent", async (req, res) => {
-      console.log('hoho')
       const addEvent = req.body
       console.log(addEvent)
       const result = await addEventCollection.insertOne(addEvent);
@@ -139,68 +108,125 @@ async function run() {
     // })
 
 
-    // send email for confirm payment
-    const sendRemainderEmail = async nextDay => {
-      const info = await transporter.sendMail({
-        from: "mdmasrafi902@gmail.com",
-        to: `${nextDay.email} `,
-        subject: "Your Meeting is tomorrow",
-        // text: "ocena manus k taka dico kn? ebr muri khaw",
-        html: `
+    // send remainder email
+    const sendRemainderEmail = async (results) => {
+      console.log(results);
+
+      const emailPromises = results.map(async (result) => {
+        if (result && result.email) {
+          const info = await transport.sendMail({
+            from: "mdmasrafi902@gmail.com",
+            to: `${result.email}`,
+            subject: "Your Meeting is next Hour",
+            html: `
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Your Payment Confirmation</title>
+<title>Your Meeting in next hour</title>
 </head>
 <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-        <h2 style="color: #007BFF;">Payment Confirmation</h2>
-        <p>Dear User,</p>
-        <p>Your payment has been successfully processed.</p>
-        <p>Details of your payment:</p>
-        <ul>
-            <li>Event Name: ${nextDay.eventName}</li>
-            <li>Conference Type: ${eventName.conferenceType}</li>
-            <li>Event Link: ${nextDay.eventLink}</li>
-            <li>Meeting Time: ${nextDay.startTime} - ${nextDay.endTime}</li>
+<div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+<h2 style="color: #007BFF;">Event Remained</h2>
+<p>Dear User,</p>
+<p>There is only one hour left in your meeting.</p>
+<p>Details of your Meeting:</p>
+<ul>
+            <li>Event Name: ${result.eventName}</li>
+            <li>Conference Type: ${result.conferenceType}</li>
+            <li>Event Link: ${result.link.meetLink}</li>
+            <li>Meeting Time: ${result?.formData?.startTime} - ${result?.formData?.endTime}</li>
             <!-- Add more payment details as needed -->
         </ul>
         <p>Thank you for choosing our service.</p>
         <p>Sincerely,</p>
         <p>Plan Picker</p>
-    </div>
-</body>
-</html>
-`,
+        </div>
+        </body>
+        </html>
+        `,
+          });
+          console.log('Email sent successfully to', result.email);
+        } else {
+          console.error('Invalid or missing recipient email address');
+        }
       });
-    }
+
+      // Wait for all email promises to resolve
+      await Promise.all(emailPromises);
+    };
 
 
+    nodeSchedule.scheduleJob('*/60 * * * * *', () => {
+      sendEventReminders()
+    })
 
-    app.get("/sendEventReminders", async (req, res) => {
+
+    const sendEventReminders = async () => {
       try {
-        const currentDate = new Date();
-        const oneDayAhead = new Date(currentDate);
-        oneDayAhead.setDate(currentDate.getDate() + 1); // Set it to 30 days ahead
+        console.log('10')
+        const currentTime = new Date();
+        currentTime.setHours(currentTime.getHours() + 1);
 
-        // Format oneDayAhead as "YYYY-MM-DD" string
-        const formattedDate = oneDayAhead.toISOString().split('T')[0];
-        // Query for events with a startDate within the date range
-        const query = { "formData.startDate": formattedDate };
+        // Get hours (1-12) and determine AM/PM
+        const hours = (currentTime.getHours() % 12 || 12).toString().padStart(2, '0');
+        const minutes = currentTime.getMinutes().toString().padStart(2, '0');
+        const amPm = currentTime.getHours() >= 12 ? 'PM' : 'AM'; // Determine AM or PM
+        const formattedTime = `${hours}:${minutes} ${amPm}`;
 
         const events = await addEventCollection.find().toArray();
-        const mapped = events.map(data => data);
-        const nextDay = mapped.filter(data => data.formData.startDate = query)
-        res.send(nextDay)
+        const results = events.filter(data => data.formData.startTime === formattedTime);
 
-        sendRemainderEmail(nextDay)
-
-        res.send({ message: "Event reminders sent successfully" });
+        if (results.length > 0) {
+          sendRemainderEmail(results);
+          console.log('result > 0')
+          return { results, message: "Event reminders sent successfully" };
+        } else {
+          return { message: "No events to remind" };
+        }
       } catch (error) {
         console.error("Error sending event reminders:", error);
-        res.status(500).send({ error: "Internal server error" });
+        throw new Error("Error sending event reminders");
       }
-    });
+    };
+
+
+
+
+
+    // Schedule sending event reminders every hour
+
+    // app.get("/sendEventReminders", async (req, res) => {
+    //   console.log('10')
+    //   try {
+
+    //     const currentTime = new Date();
+    //     currentTime.setHours(currentTime.getHours() + 1);
+
+    //     // Get hours (1-12) and determine AM/PM
+    //     const hours = (currentTime.getHours() % 12 || 12).toString().padStart(2, '0');
+    //     const minutes = currentTime.getMinutes().toString().padStart(2, '0');
+
+    //     const amPm = currentTime.getHours() >= 12 ? 'PM' : 'AM'; // Determine AM or PM
+
+    //     const formattedTime = `${hours}:${minutes} ${amPm}`;
+
+
+
+    //     const events = await addEventCollection.find().toArray();
+    //     const results = events.filter(data => data.formData.startTime === formattedTime);
+    //     console.log(results, formattedTime); // Output: "hh:mm AM/PM"
+
+    //     sendRemainderEmail(results);
+    //     // You can choose to send the data you need to the client here
+    //     res.send({ results, message: "Event reminders sent successfully" });
+
+    //     // If you want to send an email, do it here but don't send another response
+    //   } catch (error) {
+    //     console.error("Error sending event reminders:", error);
+    //     res.status(500).send({ error: "Internal server error" });
+    //   }
+    // });
+
 
 
 
@@ -736,3 +762,5 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);
 });
+
+
