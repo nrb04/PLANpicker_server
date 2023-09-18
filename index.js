@@ -5,71 +5,59 @@ const bodyParser = require("body-parser");
 const { ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-const cors = require("cors");
-const nodemailer = require('nodemailer');
-const fs = require('fs');
-const handlebars = require('handlebars');
-const jwt = require('jsonwebtoken');
+const stripe = require("stripe")(process.env.STRIPE_SECRET_TOKEN);
 const nodemailer = require("nodemailer");
-require('dotenv').config()
-const stripe = require('stripe')(process.env.STRIPE_SECRET_TOKEN)
+const fs = require("fs");
+const handlebars = require("handlebars");
 
 const port = process.env.PORT || 5000;
 
-
-
 // middleware
 const corsOptions = {
-  origin: '*',
+  origin: "*",
   credentials: true,
   optionSuccessStatus: 200,
-}
+};
 
 app.use(cors(corsOptions));
 app.use(express());
 app.use(express.json());
 
-const transporter = nodemailer.createTransport({
-  service: 'Gmail',
-  auth: {
-    user: 'mdmasrafi902@gmail.com',
-    pass: 'pqfarwcvvweizeqp',
-  },
-});
-
 //middleware
 const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
   if (!authorization) {
-    return res.status(401).send({ error: true, message: "unauthorized access" })
+    return res
+      .status(401)
+      .send({ error: true, message: "unauthorized access" });
   }
-  const token = authorization.split(' ')[1]
+  const token = authorization.split(" ")[1];
 
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) {
-      return res.status(401).send({ error: true, message: "unauthorized access" })
+      return res
+        .status(401)
+        .send({ error: true, message: "unauthorized access" });
     }
     req.decoded = decoded;
     next();
-  })
+  });
+};
 
-}
-
-
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const uri = "mongodb+srv://planPicker:YcfhIhEj7NsAhwYZ@cluster0.4mtnldq.mongodb.net/?retryWrites=true&w=majority";
+const { MongoClient, ServerApiVersion } = require("mongodb");
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.4mtnldq.mongodb.net/?retryWrites=true&w=majority`;
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
     deprecationErrors: true,
-  }
+  },
 });
 
 async function run() {
   try {
-    await client.connect();
+    // await client.connect();
 
     //collection Name
     const addEventCollection = client.db("PlanPickerDb").collection("addEvent");
@@ -78,16 +66,32 @@ async function run() {
     const planCollection = client.db("PlanPickerDb").collection("morePlan");
     const paymentCard = client.db("PlanPickerDb").collection("payment");
     const reviewsCollection = client.db("PlanPickerDb").collection("reviews");
-    const participantEventsCollection = client.db("PlanPickerDb").collection('participantEvents');
-    const paymentCollection = client.db('PlanPickerDb').collection('paymentCollection');
+    const paymentCollection = client
+      .db("PlanPickerDb")
+      .collection("paymentCollection");
+    const participantEventsCollection = client
+      .db("PlanPickerDb")
+      .collection("participantEvents");
 
+    // create stripe payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
 
-    app.post("/addEvent", async (req, res) => {
-      const addEvent = req.body
-
-      const result = await addEventCollection.insertOne(addEvent);
+    // payment card load
+    app.get("/paymentCard", async (req, res) => {
+      const result = await paymentCard.find().toArray();
       res.send(result);
-    })
+    });
 
     // specific card load
     app.get("/paymentCard/:id", async (req, res) => {
@@ -104,132 +108,14 @@ async function run() {
       const paymentData = req.body;
       // console.log(paymentData);
       const result = await paymentCollection.insertOne(paymentData);
-
-    app.get("/getEvent", async (req, res) => {
-      const result = await addEventCollection.find().toArray();
       res.send(result);
-    })
+    });
 
     // all payment information get
     app.get("/payments", verifyJWT, async (req, res) => {
       const result = await paymentCollection.find().toArray();
       // console.log(result);
-
-    app.get('/getEvent/:id', async (req, res) => {
-      const id = req.params.id
-      const query = { _id: new ObjectId(id) }
-      const result = await addEventCollection.find(query).toArray();
-
-    })
-
-    //JWT
-    app.post('/jwt', (req, res) => {
-      const user = req.body;
-      console.log(user)
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "7d" })
-      console.log(token)
-      res.send({ token })
-    })
-
-    const verifyAdmin = async (req, res, next) => {
-      const email = req.decoded.email;
-      const query = { email: email }
-      const user = await usersCollection.findOne(query)
-      if (user?.role !== 'admin') {
-        return res.status(403).send({ error: true, message: 'forbidden access' })
-      }
-      next()
-    }
-
-
-    // users related apis
-    //get user
-    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
-      const result = await usersCollection.find().toArray()
-      res.send(result)
-    })
-
-    //email user
-    app.get('/users/:email', async (req, res) => {
-      console.log(req.params.email);
-      const result = await usersCollection.find({ email: req.params.email }).toArray()
-      return res.send(result)
-    })
-    //id
-    app.get('/users/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      console.log(query);
-      const result = await usersCollection.findOne(query)
-      res.send(result)
-    })
-
-    //post user
-    app.post('/users', async (req, res) => {
-      const user = req.body;
-      console.log(user);
-      const query = { email: user?.email }
-      const existingUser = await usersCollection.findOne(query)
-      console.log("existingUser", existingUser);
-      if (existingUser) {
-        return res.send({ message: 'user already exist' })
-      }
-      const result = await usersCollection.insertOne(user)
-      res.send(result)
-    })
-
-    //security layer:verifyJWT
-    //same email
-    //check admin
-    app.get('/users/admin/:email', verifyJWT, async (req, res) => {
-      const email = req.params.email;
-      if (req.decoded.email !== email) {
-        res.send({ admin: false })
-      }
-
-      const query = { email: email }
-      const user = await usersCollection.findOne(query);
-      const result = { admin: user?.role === 'admin' }
       res.send(result);
-    })
-
-    //make admin
-    app.patch('/users/admin/:id', async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) }
-      const updatedDoc = {
-        $set: {
-          role: "admin"
-        }
-      }
-      const result = await usersCollection.updateOne(filter, updatedDoc)
-      res.send(result)
-    })
-
-
-    //delete
-    app.delete('/deleteuser/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
-      const result = await usersCollection.deleteOne(query)
-      res.send(result)
-    })
-
-
-
-    //profile information
-    //update
-    app.put('/updateuser/:email', async (req, res) => {
-      const email = req.params.email;
-      const user = req.body;
-      const filter = { email: email }
-      const options = { upsert: true };
-      const users = {
-        $set: {
-          ...user
-        },
-      }
-      const result = await usersCollection.updateOne(filter, users, options)
     });
 
     // // payment get by email
@@ -239,52 +125,61 @@ async function run() {
     //   res.send(result);
     // });
 
+    const transporter = nodemailer.createTransport({
+      service: "Gmail",
+      auth: {
+        user: "mdmasrafi902@gmail.com",
+        pass: "pqfarwcvvweizeqp",
+      },
+    });
+
+    // send email for confirm payment
+    const sendPaymentConfirmationEmail = async (paymentData) => {
+      const info = await transporter.sendMail({
+        from: "mdmasrafi902@gmail.com",
+        to: `${paymentData.email}`,
+        subject: "Your Payment Confirmation",
+        // text: "ocena manus k taka dico kn? ebr muri khaw",
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Your Payment Confirmation</title>
+          </head>
+          <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0;">
+              <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+                  <h2 style="color: #007BFF;">Payment Confirmation</h2>
+                  <p>Dear User,</p>
+                  <p>Your payment has been successfully processed.</p>
+                  <p>Details of your payment:</p>
+                  <ul>
+                      <li>Payment Amount: $${paymentData.price}</li>
+                      <li>Transaction ID: ${paymentData.transactionId}</li>
+                      <li>Transaction ID: ${paymentData.status}</li>
+                      <!-- Add more payment details as needed -->
+                  </ul>
+                  <p>Thank you for choosing our service.</p>
+                  <p>Sincerely,</p>
+                  <p>Plan Picker</p>
+              </div>
+          </body>
+          </html>
+          `,
+      });
+    };
+
     //Add Event and google and zoom dynamic link
     app.post("/addEvent", async (req, res) => {
       const addEvent = req.body;
-
-    // blogs
-
-    app.get('/blogs', async (req, res) => {
-      const result = await blogsCollection.find().toArray()
-
-      res.send(result)
-
-    })
-
-
-
-    app.post("/payment/success/:tranId", async (req, res) => {
-      console.log(req.params.tranId)
-      // const result =await OrderCollection.updateOne({ transactionId: req.params.tranId },
-      //   {
-      //     $set: {
-      //       paidStatus: true,
-      //     },
-      //   }
-      // )
-      // if (result.modifiedCount > 0) {
-      //   res.redirect(`https://localhost:5173/payment/success/${req.params.tranId}`)
-      // }   mongodb update
-    })
-
-
-
-    // Express route to create a Zoom meeting
-    app.post("/createMeeting", async (req, res) => {
-      // const { topic, duration, start_date, start_time } = req.body;
       const { eventName, formData, location } = req.body;
-
       const { eventDuration, startDate, endDate, startTime, selectedTimezone } =
         formData;
       const { label, value } = selectedTimezone;
       // Express route to create a Zoom meeting
-
       if (location === "Zoom") {
-
         try {
           // Zoom API setup
-          const axios = require('axios');
+          const axios = require("axios");
 
           const client_id = "YjrODn1WT4WA1f83jICVuQ";
           const account_id = "Pyy1V6i_T3uZGOgt9tD6Sg";
@@ -293,9 +188,12 @@ async function run() {
           const auth_token_url = "https://zoom.us/oauth/token";
           const api_base_url = "https://api.zoom.us/v2";
 
-
-
-          async function createMeeting(topic, duration, start_date, start_time) {
+          async function createMeeting(
+            topic,
+            duration,
+            start_date,
+            start_time
+          ) {
             try {
               // Get the access token
               const authData = {
@@ -303,7 +201,6 @@ async function run() {
                 account_id: account_id,
                 client_secret: client_secret,
               };
-
               const authResponse = await axios.post(auth_token_url, null, {
                 auth: {
                   username: client_id,
@@ -316,7 +213,6 @@ async function run() {
                 console.error("Unable to get access token");
                 return;
               }
-
               const access_token = authResponse.data.access_token;
 
               // Create the meeting
@@ -325,7 +221,7 @@ async function run() {
                 "Content-Type": "application/json",
               };
 
-              console.log(headers)
+              console.log(headers);
 
               const payload = {
                 topic: topic,
@@ -334,9 +230,13 @@ async function run() {
                 type: 2,
               };
 
-              const meetingResponse = await axios.post(`${api_base_url}/users/me/meetings`, payload, {
-                headers: headers,
-              });
+              const meetingResponse = await axios.post(
+                `${api_base_url}/users/me/meetings`,
+                payload,
+                {
+                  headers: headers,
+                }
+              );
 
               if (meetingResponse.status !== 201) {
                 console.error("Unable to generate meeting link");
@@ -355,47 +255,37 @@ async function run() {
                 status: 1,
               };
 
-              console.log(content);
+              getLink(content.meeting_url);
 
-
-
-              res.send(content)
+              // res.send(content)
             } catch (error) {
               console.error(error.message);
             }
           }
 
-
-          createMeeting(
-            eventName,
-            eventDuration,
-            startDate,
-            startTime
-          );
-
+          createMeeting(eventName, eventDuration, startDate, startTime);
         } catch (error) {
           console.error(error);
           res.status(500).json({ error: "Failed to create meeting" });
         }
       } else {
         try {
-          const fs = require('fs').promises;
-          const path = require('path');
-          const process = require('process');
-          const { authenticate } = require('@google-cloud/local-auth');
-          const { google } = require('googleapis');
+          const fs = require("fs").promises;
+          const path = require("path");
+          const process = require("process");
+          const { authenticate } = require("@google-cloud/local-auth");
+          const { google } = require("googleapis");
 
           // If modifying these scopes, delete token.json.
-          const SCOPES = ['https://www.googleapis.com/auth/calendar'];
+          const SCOPES = ["https://www.googleapis.com/auth/calendar"];
           // The file token.json stores the user's access and refresh tokens, and is
           // created automatically when the authorization flow completes for the first
           // time.
-          const TOKEN_PATH = path.join(process.cwd(), 'token.json');
-          const CREDENTIALS_PATH = path.join(process.cwd(), 'credentials.json');
+          const TOKEN_PATH = path.join(process.cwd(), "token.json");
+          const CREDENTIALS_PATH = path.join(process.cwd(), "credentials.json");
 
           /**
            * Reads previously authorized credentials from the save file.
-           *
            * @return {Promise<OAuth2Client|null>}
            */
           async function loadSavedCredentialsIfExist() {
@@ -410,16 +300,15 @@ async function run() {
 
           /**
            * Serializes credentials to a file compatible with GoogleAUth.fromJSON.
-           *
            * @param {OAuth2Client} client
            * @return {Promise<void>}
-           */
+           **/
           async function saveCredentials(client) {
             const content = await fs.readFile(CREDENTIALS_PATH);
             const keys = JSON.parse(content);
             const key = keys.installed || keys.web;
             const payload = JSON.stringify({
-              type: 'authorized_user',
+              type: "authorized_user",
               client_id: key.client_id,
               client_secret: key.client_secret,
               refresh_token: client.credentials.refresh_token,
@@ -429,7 +318,6 @@ async function run() {
 
           /**
            * Load or request authorization to call APIs.
-           *
            */
           async function authorize() {
             let client = await loadSavedCredentialsIfExist();
@@ -448,16 +336,15 @@ async function run() {
 
           /**
            * Create a new Google Calendar event with Google Meet link.
-           *
            * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
            */
           async function createGoogleCalendarEvent(auth) {
-            const calendar = google.calendar({ version: 'v3', auth });
+            const calendar = google.calendar({ version: "v3", auth });
 
             // Define the event details
             const eventDetails = {
-              summary: 'Sample Event',
-              location: 'Online', // You can set this to 'Online' for Google Meet events
+              summary: eventName,
+              location: "Online", // You can set this to 'Online' for Google Meet events
               start: {
                 dateTime: startDate, // Replace with your desired start time
                 timeZone: value, // Replace with the desired time zone
@@ -468,36 +355,30 @@ async function run() {
               },
               conferenceData: {
                 createRequest: {
-                  requestId: 'your-request-id', // Replace with your own request ID
+                  requestId: "your-request-id", // Replace with your own request ID
                 },
               },
             };
 
             try {
               const response = await calendar.events.insert({
-                calendarId: 'primary', // Replace with your calendar ID
+                calendarId: "primary", // Replace with your calendar ID
                 resource: eventDetails,
                 sendNotifications: true,
                 conferenceDataVersion: 1,
               });
 
               const createdEvent = response.data;
-              // console.log("Event created:", createdEvent);
+              console.log("Event created:", createdEvent);
 
               // Get the Google Meet link
               const meetLink = createdEvent.hangoutLink;
-              // console.log("Google Meet link:", meetLink);
+              console.log("Google Meet link:", meetLink);
 
-//               getLink(meetLink);
-              // console.log(meetLink);
-              console.log('Event created:', createdEvent);
-
-              // Get the Google Meet link
-              const meetLink = createdEvent.hangoutLink;
-              console.log('Google Meet link:', meetLink);
               await getLink(meetLink);
+              console.log(meetLink);
             } catch (err) {
-              console.error('Error creating event:', err);
+              console.error("Error creating event:", err);
             }
           }
 
@@ -507,14 +388,13 @@ async function run() {
               const authClient = await authorize();
               await createGoogleCalendarEvent(authClient);
             } catch (error) {
-              console.error('Error:', error);
+              console.error("Error:", error);
             }
           }
-
           // Run the main function
           main();
         } catch (error) {
-          console.log(error)
+          console.log(error);
         }
       }
 
@@ -525,7 +405,7 @@ async function run() {
             meetLink: dataLink,
           };
 
-          const eventData = { ...addEvent, link }
+          const eventData = { ...addEvent, link };
 
           const result = await addEventCollection.insertOne(eventData);
           res.send(result); // Send the response once, after all async operations
@@ -536,13 +416,12 @@ async function run() {
       }
     });
 
-
     // ==========================
 
     // Participants events api
     // Create a transporter object using your email service provider's SMTP settings
     const confirmationTransporter = nodemailer.createTransport({
-      service: 'gmail', // Replace with your email service provider (e.g., 'gmail')
+      service: "gmail", // Replace with your email service provider (e.g., 'gmail')
       auth: {
         user: "planpicker.web@gmail.com",
         pass: "aokq srwx xptb yetd",
@@ -550,9 +429,10 @@ async function run() {
     });
 
     // Route to schedule an event and send event details via email and save in MongoDB
-    app.post('/participant-event', (req, res) => {
+    app.post("/participant-event", (req, res) => {
       // Function to send event details via email
-      const sendEventDetailsEmail = (minutes,
+      const sendEventDetailsEmail = (
+        minutes,
         timeDurationRange,
         selectedDate,
         eventName,
@@ -563,10 +443,14 @@ async function run() {
         name,
         email,
         note,
-        location, hostName) => {
-        const emailTemplateSource = fs.readFileSync('./emailTemplate.hbs', 'utf-8');
+        location,
+        hostName
+      ) => {
+        const emailTemplateSource = fs.readFileSync(
+          "./emailTemplate.hbs",
+          "utf-8"
+        );
         const emailTemplate = handlebars.compile(emailTemplateSource);
-
 
         const emailData = {
           // Add other dynamic data properties as needed
@@ -601,7 +485,7 @@ async function run() {
           if (error) {
             console.error(error);
           } else {
-            console.log('Email sent: ' + info.response);
+            console.log("Email sent: " + info.response);
           }
         });
       };
@@ -609,23 +493,22 @@ async function run() {
       // Function to save event details in MongoDB
       const saveEventToMongoDB = async (confirmdEvent) => {
         try {
+          const result = await participantEventsCollection.insertOne(
+            confirmdEvent
+          );
 
-          const result = await participantEventsCollection.insertOne(confirmdEvent);
+          console.log("Event saved to MongoDB with ID:", result.insertedId);
 
-          console.log('Event saved to MongoDB with ID:', result.insertedId);
-          
-          res.send(result)
-
+          res.send(result);
         } catch (error) {
-          console.error('Error saving event to MongoDB:', error);
+          console.error("Error saving event to MongoDB:", error);
         }
       };
 
-
-    
       const confirmdEvent = req.body;
-      
-      const { minutes,
+
+      const {
+        minutes,
         timeDurationRange,
         selectedDate,
         eventName,
@@ -636,14 +519,17 @@ async function run() {
         name,
         email,
         note,
-        location, hostName } = req.body;
+        location,
+        hostName,
+      } = req.body;
 
       const dataAtCreated = {
         created_at: new Date(),
       };
       // Send event details via email and save in MongoDB
       // sendEventDetailsEmail(name, email, note, selectedDate);
-      sendEventDetailsEmail(minutes,
+      sendEventDetailsEmail(
+        minutes,
         timeDurationRange,
         selectedDate,
         eventName,
@@ -654,23 +540,22 @@ async function run() {
         name,
         email,
         note,
-        location, hostName);
-      
-      saveEventToMongoDB({...confirmdEvent, dataAtCreated});
+        location,
+        hostName
+      );
 
+      saveEventToMongoDB({ ...confirmdEvent, dataAtCreated });
     });
 
     // ======================
 
-
-    app.get("/getConfirmedSchdule/:id", async(req, res) => {
+    app.get("/getConfirmedSchdule/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
+      const query = { _id: new ObjectId(id) };
       const result = await participantEventsCollection.find(query).toArray();
-      console.log(id)
-      res.send(result)
-    })
-
+      console.log(id);
+      res.send(result);
+    });
 
     app.get("/getEvent", async (req, res) => {
       const result = await addEventCollection.find().toArray();
@@ -681,21 +566,13 @@ async function run() {
       const id = req.params.id;
       // const query = { _id: new ObjectId(id) }
       const result = await addEventCollection.find({ id }).toArray();
-      res.send(result)
-    })
-
+      res.send(result);
+    });
 
     app.get("/getEventData/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await addEventCollection.find(query).toArray();
-      res.send(result)
-    })
-
-
-    app.get('/getEventByEmail/:email', async (req, res) => {
-      const email = req.params.email
-      // console.log(id);
       res.send(result);
     });
 
@@ -705,11 +582,11 @@ async function run() {
       res.send(result);
     });
 
-    app.get('/blogs/:id', async (req, res) => {
+    app.delete("/deleteEventById/:id", async (req, res) => {
       const id = req.params.id;
       const result = await addEventCollection.deleteOne({ id });
       res.send(result);
-      // console.log(id);
+      console.log(id);
     });
 
     app.delete("/deleteEventById/:id", async (req, res) => {
@@ -719,35 +596,81 @@ async function run() {
       // console.log(id);
     });
 
-      const query = { _id: id }
-      const result = await blogsCollection.findOne(query)
-      res.send(result)
+    app.post("/payment/success/:tranId", async (req, res) => {
+      console.log(req.params.tranId);
+      // const result =await OrderCollection.updateOne({ transactionId: req.params.tranId },
+      //   {
+      //     $set: {
+      //       paidStatus: true,
+      //     },
+      //   }
+      // )
+      // if (result.modifiedCount > 0) {
+      //   res.redirect(`https://localhost:5173/payment/success/${req.params.tranId}`)
+      // }   mongodb update
+    });
 
-    })
-
-    // plans
-
-    app.get('/plans', async (req, res) => {
-      const result = await planCollection.find().toArray()
-      res.send(result)
-    })
-
-
-    // create stripe payment intent
-    app.post('/create-payment-intent', async (req, res) => {
-      const { price } = req.body;
-      const amount = parseInt(price * 100);
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amount,
-        currency: 'usd',
-        payment_method_types: ['card']
+    //JWT
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      // console.log(user);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "7d",
       });
+      // console.log(token);
+      res.send({ token });
+    });
 
-      res.send({
-        clientSecret: paymentIntent.client_secret
-      })
-    })
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res
+          .status(403)
+          .send({ error: true, message: "forbidden access" });
+      }
+      next();
+    };
 
+    // review collection here
+    app.post("/reviews", async (req, res) => {
+      const item = req.body;
+      // console.log(item);
+      const result = await reviewsCollection.insertOne(item);
+      res.send(result);
+    });
+
+    // review collection get
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    });
+
+    // users related apis
+    //get user
+    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    //email user
+    app.get("/users/:email", async (req, res) => {
+      // console.log(req.params.email);
+      const result = await usersCollection
+        .find({ email: req.params.email })
+        .toArray();
+      return res.send(result);
+    });
+
+    //id
+    app.get("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      // console.log(query);
+      const result = await usersCollection.findOne(query);
+      res.send(result);
+    });
 
     //post user
     app.post("/users", async (req, res) => {
@@ -755,7 +678,7 @@ async function run() {
       // console.log(user);
       const query = { email: user?.email };
       const existingUser = await usersCollection.findOne(query);
-      // console.log("existingUser", existingUser);
+      console.log("existingUser", existingUser);
       if (existingUser) {
         return res.send({ message: "user already exist" });
       }
@@ -763,82 +686,83 @@ async function run() {
       res.send(result);
     });
 
-
-    // payment card load
-    app.get('/paymentCard', async (req, res) => {
-      const result = await paymentCard.find().toArray()
-      res.send(result)
-    })
-
-    // specific card load
-    app.get('/paymentCard/:id', async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const singleCard = await paymentCard.findOne(query)
-      res.send(singleCard)
-      console.log(singleCard)
-    })
-
-    // send email for confirm payment
-    const sendPaymentConfirmationEmail = async paymentData => {
-      const info = await transporter.sendMail({
-        from: "mdmasrafi902@gmail.com",
-        to: `${paymentData.email}`,
-        subject: "Your Payment Confirmation",
-        // text: "ocena manus k taka dico kn? ebr muri khaw",
-        html: `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Your Payment Confirmation</title>
-</head>
-<body style="font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0;">
-    <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
-        <h2 style="color: #007BFF;">Payment Confirmation</h2>
-        <p>Dear User,</p>
-        <p>Your payment has been successfully processed.</p>
-        <p>Details of your payment:</p>
-        <ul>
-            <li>Payment Amount: $${paymentData.price}</li>
-            <li>Transaction ID: ${paymentData.transactionId}</li>
-            <li>Transaction ID: ${paymentData.status}</li>
-            <!-- Add more payment details as needed -->
-        </ul>
-        <p>Thank you for choosing our service.</p>
-        <p>Sincerely,</p>
-        <p>Plan Picker</p>
-    </div>
-</body>
-</html>
-`,
-      });
-    }
-
-    //  user payment success information post
-    app.post('/payments', async (req, res) => {
-      const paymentData = req.body;
-      console.log(paymentData)
-      const result = await paymentCollection.insertOne(paymentData);
-
-      // send email confirming payment
-      sendPaymentConfirmationEmail(paymentData)
-
+    //security layer:verifyJWT
+    //same email
+    //check admin
+    app.get("/users/admin/:email", verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      if (req.decoded.email !== email) {
+        res.send({ admin: false });
+      }
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      const result = { admin: user?.role === "admin" };
       res.send(result);
-    })
+    });
 
-    // all payment information get
-    app.get('/payments', async (req, res) => {
-      const result = await paymentCollection.find().toArray();
-      console.log(result)
-      res.send(result)
-    })
+    //make admin
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await usersCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
 
+    //delete
+    app.delete("/deleteuser/:id", async (req, res) => {
+      const id = req.params.id;
+      console.log(id);
+      const query = { _id: new ObjectId(id) };
+      const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    });
 
+    //profile information
+    //update
+    app.put("/updateuser/:email", async (req, res) => {
+      const email = req.params.email;
+      const user = req.body;
+      const filter = { email: email };
+      const options = { upsert: true };
+      const users = {
+        $set: {
+          ...user,
+        },
+      };
+      const result = await usersCollection.updateOne(filter, users, options);
+    });
+
+    // blogs
+
+    app.get("/blogs", async (req, res) => {
+      const result = await blogsCollection.find().toArray();
+      res.send(result);
+    });
+
+    app.get("/blogs/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: id };
+      const result = await blogsCollection.findOne(query);
+      res.send(result);
+    });
+
+    // plans
+    app.get("/plans", async (req, res) => {
+      const result = await planCollection.find().toArray();
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
 
     await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
@@ -847,12 +771,9 @@ async function run() {
 
 run().catch(console.dir);
 
-
 app.get("/", (req, res) => {
   res.send("Plan Picker server is running");
 });
-
-
 
 app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);
