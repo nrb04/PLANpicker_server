@@ -12,8 +12,6 @@ const handlebars = require('handlebars');
 const ical = require('ical-generator');
 
 
-
-
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -105,6 +103,28 @@ async function run() {
       res.send(singleCard);
       // console.log(singleCard);
     });
+
+    //  user payment success information post
+    app.post("/payments", async (req, res) => {
+      const paymentData = req.body;
+      // console.log(paymentData);
+      const result = await paymentCollection.insertOne(paymentData);
+      res.send(result);
+    });
+
+    // all payment information get
+    app.get("/payments", verifyJWT, async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      // console.log(result);
+      res.send(result);
+    });
+
+    // // payment get by email
+    // app.get("/payments/:email", async (req, res) => {
+    //   const email = req.params.email;
+    //   const result = await paymentCollection.find({ email }).toArray();
+    //   res.send(result);
+    // });
 
 
 
@@ -207,7 +227,7 @@ async function run() {
                 "Content-Type": "application/json",
               };
 
-              console.log(headers)
+              console.log(headers);
 
               const payload = {
                 topic: topic,
@@ -264,6 +284,7 @@ async function run() {
 
               getLink(content.meeting_url)
               console.log(content)
+
               // res.send(content)
             } catch (error) {
               console.error(error.message);
@@ -390,7 +411,6 @@ async function run() {
               const meetLink = createdEvent.hangoutLink;
               console.log('Google Meet link:', meetLink);
 
-             
 
               await getLink(meetLink);
               console.log(meetLink);
@@ -427,7 +447,7 @@ async function run() {
             meetLink: dataLink,
           };
 
-          const eventData = { ...addEvent, link }
+          const eventData = { ...addEvent, link };
 
           const result = await addEventCollection.insertOne(eventData);
           res.send(result); // Send the response once, after all async operations
@@ -438,13 +458,12 @@ async function run() {
       }
     });
 
-
     // ==========================
 
     // Participants events api
     // Create a transporter object using your email service provider's SMTP settings
     const confirmationTransporter = nodemailer.createTransport({
-      service: 'gmail', // Replace with your email service provider (e.g., 'gmail')
+      service: "gmail", // Replace with your email service provider (e.g., 'gmail')
       auth: {
         user: "planpicker.web@gmail.com",
         pass: "aokq srwx xptb yetd",
@@ -460,9 +479,10 @@ async function run() {
     });
 
     // Route to schedule an event and send event details via email and save in MongoDB
-    app.post('/participant-event', (req, res) => {
+    app.post("/participant-event", (req, res) => {
       // Function to send event details via email
-      const sendEventDetailsEmail = (minutes,
+      const sendEventDetailsEmail = (
+        minutes,
         timeDurationRange,
         selectedDate,
         eventName,
@@ -473,8 +493,14 @@ async function run() {
         name,
         email,
         note,
-        location, hostName) => {
-        const emailTemplateSource = fs.readFileSync('./emailTemplate.hbs', 'utf-8');
+        location,
+        hostName,
+        eventLink,
+      ) => {
+        const emailTemplateSource = fs.readFileSync(
+          "./emailTemplate.hbs",
+          "utf-8"
+        );
         const emailTemplate = handlebars.compile(emailTemplateSource);
 
         // Create a Date object from the ISO 8601 date and time string
@@ -505,13 +531,15 @@ async function run() {
           note,
           location,
           hostName,
+          eventLink,
         };
 
         // Generate the email content by passing the data to the template
         const emailContent = emailTemplate(emailData);
 
         //This object for ical.
-        const content = { eventName, selectedDate, location }
+        // const content = { eventName, selectedDate, location }
+        const content = `${eventName} ${selectedDate} ${location}`
 
 
         // Send event details via email
@@ -549,7 +577,7 @@ async function run() {
           if (error) {
             console.error(error);
           } else {
-            console.log('Email sent: ' + info.response);
+            console.log("Email sent: " + info.response);
           }
         });
 
@@ -566,6 +594,7 @@ async function run() {
       // Function to save event details in MongoDB
       const saveEventToMongoDB = async (confirmdEvent) => {
         try {
+          
 
           const result = await participantEventsCollection.insertOne(confirmdEvent);
 
@@ -573,8 +602,9 @@ async function run() {
 
           res.send(result)
 
+          res.send(result);
         } catch (error) {
-          console.error('Error saving event to MongoDB:', error);
+          console.error("Error saving event to MongoDB:", error);
         }
       };
 
@@ -594,7 +624,12 @@ async function run() {
         name,
         email,
         note,
-        location, hostName } = req.body;
+        location,
+        hostName,
+        eventLink,
+      } = req.body;
+
+      console.log(req.body)
 
       const dataAtCreated = {
         created_at: new Date(),
@@ -612,10 +647,11 @@ async function run() {
         name,
         email,
         note,
-        location, hostName);
+        location, hostName, eventLink);
 
       saveEventToMongoDB({ ...confirmdEvent, dataAtCreated });
 
+      saveEventToMongoDB({ ...confirmdEvent, dataAtCreated });
     });
 
     // ======================
@@ -623,12 +659,11 @@ async function run() {
 
     app.get("/getConfirmedSchdule/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id) }
+      const query = { _id: new ObjectId(id) };
       const result = await participantEventsCollection.find(query).toArray();
-      console.log(id)
-      res.send(result)
-    })
-
+      console.log(id);
+      res.send(result);
+    });
 
     app.get("/getEvent", async (req, res) => {
       const result = await addEventCollection.find().toArray();
@@ -639,33 +674,28 @@ async function run() {
       const id = req.params.id;
       // const query = { _id: new ObjectId(id) }
       const result = await addEventCollection.find({ id }).toArray();
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-
-    app.get('/getEventData/:id', async (req, res) => {
-      const id = req.params.id
-      const query = { _id: new ObjectId(id) }
+    app.get("/getEventData/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
       const result = await addEventCollection.find(query).toArray();
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-
-    app.get('/getEventByEmail/:email', async (req, res) => {
-      const email = req.params.email
+    app.get("/getEventByEmail/:email", async (req, res) => {
+      const email = req.params.email;
       const result = await addEventCollection.find({ email }).toArray();
-      res.send(result)
+      res.send(result);
+    });
 
-    })
-
-
-    app.delete('/deleteEventById/:id', async (req, res) => {
-      const id = req.params.id
+    app.delete("/deleteEventById/:id", async (req, res) => {
+      const id = req.params.id;
       const result = await addEventCollection.deleteOne({ id });
-      res.send(result)
-      console.log(id)
-    })
-
+      res.send(result);
+      console.log(id);
+    });
 
     // Delete Event Scheduled by Id
     app.delete("/deleteEventById/:id", async (req, res) => {
@@ -681,6 +711,13 @@ async function run() {
     app.post("/availability", async (req, res) => {
       const availability = req.body;
       const result = await availabilityCollection.insertOne(availability);
+      res.send(result);
+    });
+
+
+    //Get Availability from the database
+    app.get("/getAvailability", async (req, res) => {
+      const result = await availabilityCollection.find().toArray();
       res.send(result);
     });
  
@@ -830,7 +867,7 @@ async function run() {
     //delete
     app.delete("/deleteuser/:id", async (req, res) => {
       const id = req.params.id;
-      console.log(id)
+      console.log(id);
       const query = { _id: new ObjectId(id) };
       const result = await usersCollection.deleteOne(query);
       res.send(result);
