@@ -83,7 +83,7 @@ async function run() {
       .db("PlanPickerDb")
       .collection("availability");
 
-    // create stripe payment intent
+    // create stripe payment
     app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
       const amount = parseInt(price * 100);
