@@ -180,10 +180,7 @@ async function run() {
         formData;
       const { label, value } = selectedTimezone;
 
-      console.log(eventName, formData, location, email, name)  //user data
-
       console.log(addEvent)
-
 
       // Express route to create a Zoom meeting
       if (location === "Zoom") {
@@ -234,26 +231,7 @@ async function run() {
                 duration: duration,
                 start_time: `${start_date}T${start_time}`,
                 type: 2,
-                settings: {
-                  host_video: true,
-                  participant_video: true,
-                  join_before_host: true, // Allow participants to join before the host
-                  // Add more settings as needed
-                },
-                // Add organizer/host information
-                host_id: "249 450 6053", // Replace with the actual host's Zoom user ID
-                // settings: {
-                //   host_video: true,
-                //   participant_video: true,
-                //   // Add more settings as needed
-                // },
-                // Add organizer/host information
-                // settings: {
-                //   host_email: hostEmail,
-                //   host_name: hostName,
-                //   // host_key: organizerPhone,
-                //   host_id: "249 450 6053",
-                // },
+
               };
 
               const meetingResponse = await axios.post(
@@ -385,23 +363,20 @@ async function run() {
               conferenceData: {
                 createRequest: {
                   requestId: "your-request-id", // Replace with your own request ID
-                  type: "hangoutsMeet",
                 },
 
               },
-              organizer: {
-                email: email,
-              }
+
             };
 
             try {
               const response = await calendar.events.insert({
-                calendarId: 'placeholder-value',
+                calendarId: 'primary',
                 resource: eventDetails,
                 sendUpdates: "all",
                 sendNotifications: true,
                 conferenceDataVersion: 1,
-                
+
               });
 
               const createdEvent = response.data;
@@ -413,7 +388,7 @@ async function run() {
 
 
               await getLink(meetLink);
-              console.log(meetLink);
+              
             } catch (err) {
               console.error("Error creating event:", err);
             }
@@ -434,10 +409,10 @@ async function run() {
 
         } catch (error) {
           console.log(error);
-        } 
+        }
       }
 
-      
+
 
       async function getLink(meetLink) {
         try {
@@ -458,10 +433,13 @@ async function run() {
       }
     });
 
+
+
+
     // ==========================
 
     // Participants events api
-    // Create a transporter object using your email service provider's SMTP settings
+    // Create a transporter object using email service provider's SMTP settings
     const confirmationTransporter = nodemailer.createTransport({
       service: "gmail", // Replace with your email service provider (e.g., 'gmail')
       auth: {
@@ -594,7 +572,7 @@ async function run() {
       // Function to save event details in MongoDB
       const saveEventToMongoDB = async (confirmdEvent) => {
         try {
-          
+
 
           const result = await participantEventsCollection.insertOne(confirmdEvent);
 
@@ -690,19 +668,13 @@ async function run() {
       res.send(result);
     });
 
-    app.delete("/deleteEventById/:id", async (req, res) => {
-      const id = req.params.id;
-      const result = await addEventCollection.deleteOne({ id });
-      res.send(result);
-      console.log(id);
-    });
 
     // Delete Event Scheduled by Id
     app.delete("/deleteEventById/:id", async (req, res) => {
       const id = req.params.id;
       const result = await addEventCollection.deleteOne({ id });
       res.send(result);
-      // console.log(id);
+
     });
 
 
@@ -720,7 +692,7 @@ async function run() {
       const result = await availabilityCollection.find().toArray();
       res.send(result);
     });
- 
+
 
     //  user payment success information post
     app.post("/payments", async (req, res) => {
